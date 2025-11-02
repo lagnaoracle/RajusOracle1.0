@@ -36,21 +36,6 @@ function App() {
     }
   };
 
-  // 📍 Use browser geolocation
-  const handleUseLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLat(pos.coords.latitude.toFixed(2));
-          setLon(pos.coords.longitude.toFixed(2));
-        },
-        () => alert("Unable to fetch your location. Please allow permission.")
-      );
-    } else {
-      alert("Geolocation not supported by your browser.");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black text-white flex flex-col items-center py-10 px-4">
       {/* Header */}
@@ -136,15 +121,6 @@ function App() {
             required
           />
         </div>
-
-        {/* 📍 Use My Location Button */}
-        <button
-          type="button"
-          onClick={handleUseLocation}
-          className="mt-4 w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-md text-sm text-gray-300 transition-all"
-        >
-          📍 Use My Current Location
-        </button>
 
         {/* 🔮 Submit */}
         <button
