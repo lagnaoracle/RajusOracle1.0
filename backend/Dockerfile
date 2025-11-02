@@ -7,7 +7,6 @@ WORKDIR /app
 
 # Copy package.json and .npmrc first
 COPY package.json ./
-COPY .npmrc ./
 
 # Install dependencies via HTTPS
 RUN npm install
