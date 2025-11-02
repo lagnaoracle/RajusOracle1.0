@@ -1,27 +1,46 @@
-import { AstroTime, SiderealTime } from "astronomy-engine";
+import { Astronomy } from "astronomy-engine";
+import moment from "moment-timezone";
 
+/**
+ * Compute Lagna (Ascendant) and planetary positions
+ */
 export function calculateLagna(date, time, lat, lon, tz) {
-  // Convert local time to UTC
-  const localDateTime = new Date(`${date}T${time}:00`);
-  const utc = new Date(localDateTime.getTime() - tz * 3600 * 1000);
+  // Combine date and time in local timezone
+  const dateTimeString = `${date} ${time}`;
+  const localTime = moment.tz(dateTimeString, "YYYY-MM-DD HH:mm", tz * 60).toDate();
 
-  const astroTime = new AstroTime(utc);
-  const sidereal = SiderealTime(astroTime);
+  // Convert to UTC for Astronomy Engine
+  const observer = new Astronomy.Observer(lat, lon, 0);
+  const astroTime = Astronomy.MakeTime(localTime);
 
-  // Rough Lagna (Ascendant) degree
-  const ascendantDeg = (sidereal * 15 + lon) % 360;
+  // Ascendant calculation
+  const siderealTime = Astronomy.SiderealTime(astroTime);
+  const ascendantLongitude = (siderealTime * 15 + lon) % 360;
 
-  // Map to zodiac sign
-  const signs = [
-    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-  ];
-  const signIndex = Math.floor(ascendantDeg / 30);
-  const ascSign = signs[signIndex];
+  // Compute planet longitudes
+  const planets = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"];
+  const planetPositions = {};
+
+  planets.forEach((planet) => {
+    const body = Astronomy.Body[planet];
+    const ecliptic = Astronomy.Equator(body, astroTime, observer, true, true);
+    const ecl = Astronomy.Horizon(astroTime, observer, ecliptic.ra, ecliptic.dec, "normal");
+    planetPositions[planet] = {
+      altitude: ecl.altitude.toFixed(2),
+      azimuth: ecl.azimuth.toFixed(2),
+    };
+  });
+
+  // Compute 12 houses (each 30° apart)
+  const houses = {};
+  for (let i = 1; i <= 12; i++) {
+    houses[`House_${i}`] = ((ascendantLongitude + (i - 1) * 30) % 360).toFixed(2);
+  }
 
   return {
-    ascendantDeg: ascendantDeg.toFixed(2),
-    ascSign,
-    debug: { date, time, lat, lon, tz, utc: utc.toISOString() }
+    ascendantLongitude: ascendantLongitude.toFixed(2),
+    siderealTime: siderealTime.toFixed(2),
+    planets: planetPositions,
+    houses,
   };
 }
