@@ -1,24 +1,30 @@
-// utils/lagna.js
-import swisseph from 'swisseph-latest';
+import swisseph from "swisseph-latest";
+import moment from "moment-timezone";
 
-export async function computeLagna({ date, time, lat, lon, tz }) {
+export async function calculateLagna(date, time, lat, lon, tz) {
   return new Promise((resolve, reject) => {
-    const [year, month, day] = date.split("-").map(Number);
-    const [hour, minute] = time.split(":").map(Number);
-    const ut = swe.utc_time_zone(year, month, day, hour, minute, 0, tz);
+    try {
+      const datetime = moment.tz(`${date} ${time}`, "YYYY-MM-DD HH:mm", tz);
+      const julianDay = swisseph.swe_julday(
+        datetime.year(),
+        datetime.month() + 1,
+        datetime.date(),
+        datetime.hour() + datetime.minute() / 60
+      );
 
-    swe.swe_houses(
-      ut.julian_day_ut,
-      lat,
-      lon,
-      "P",
-      (res) => {
-        if (res.error) return reject(res.error);
-        resolve({
-          ascendant: res.ascendant,
-          houses: res.house,
-        });
-      }
-    );
+      swisseph.swe_houses(
+        julianDay,
+        lat,
+        lon,
+        "P",
+        (result) => {
+          if (result.error) return reject(result.error);
+          const ascendant = result.ascendant;
+          resolve({ ascendant, houses: result.houses });
+        }
+      );
+    } catch (err) {
+      reject(err);
+    }
   });
 }
