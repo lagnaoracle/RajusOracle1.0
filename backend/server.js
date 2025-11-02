@@ -1,36 +1,36 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import morgan from "morgan";
 import dotenv from "dotenv";
-import { computeLagna } from "./utils/lagna.js";
+import { calculateLagna } from "./utils/lagna.js"; // <-- uses swisseph-latest
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 10000;
+
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(morgan("dev"));
 
+// Root route
 app.get("/", (req, res) => {
-  res.send("✅ Raju's Oracle backend is running!");
+  res.send("🔥 Raju's Oracle Backend is running!");
 });
 
+// Lagna calculation endpoint
 app.post("/api/lagna", async (req, res) => {
   try {
     const { date, time, lat, lon, tz } = req.body;
-    if (!date || !time || lat === undefined || lon === undefined)
-      return res.status(400).json({ error: "Missing parameters" });
 
-    const result = await computeLagna({ date, time, lat, lon, tz: tz || 0 });
-    res.json({ success: true, data: result });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Computation failed" });
-  }
-});
+    if (!date || !time || lat === undefined || lon === undefined || tz === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
-app.get("/api/test", (req, res) => {
-  res.json({ success: true, message: "API is alive!" });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    const lagnaResult = await calculateLagna(date, time, lat, lon, tz);
+    res.json({ success: true, data: lagnaResult });
+  } catch (error) {
+    console.error("Error in /api/lagna:", error);
+    res.status(500).json({ error: "Failed to calcu
