@@ -43,10 +43,8 @@ function App() {
         Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
       </p>
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full"
-      >
+     <form onSubmit={handleSubmit} className="card max-w-lg w-full">
+
         <div className="grid grid-cols-2 gap-4">
           <input
             type="date"
