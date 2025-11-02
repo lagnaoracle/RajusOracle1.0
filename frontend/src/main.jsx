@@ -1,8 +1,22 @@
+// frontend/src/main.jsx
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
 import "./index.css";
 import LagnaChart from "./components/LagnaChart";
+
+// ---- Config ----
+const API_BASE =
+  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+  "https://rajusoracle1-0.onrender.com";
+
+const VITE_OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || ""; // optional in local dev
+
+// Axios instance
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: { "Content-Type": "application/json" },
+});
 
 function App() {
   const [date, setDate] = useState("");
@@ -15,63 +29,106 @@ function App() {
   const [reading, setReading] = useState("");
   const [lagna, setLagna] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  // 🌍 Autocomplete city search
+  // --- City autocomplete (OpenCage) ---
   const handleCitySearch = async (query) => {
     setCityQuery(query);
-    if (query.length < 3) {
+    if (!VITE_OPENCAGE_KEY) {
+      // No key set; just skip autocomplete silently
+      setSuggestions([]);
+      return;
+    }
+    if (query.trim().length < 3) {
       setSuggestions([]);
       return;
     }
     try {
-      const apiKey = import.meta.env.VITE_OPENCAGE_KEY;
       const res = await axios.get(
-        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
-          query
-        )}&key=${apiKey}&limit=5`
+        "https://api.opencagedata.com/geocode/v1/json",
+        {
+          params: {
+            q: query.trim(),
+            key: VITE_OPENCAGE_KEY,
+            limit: 7,
+            no_annotations: 0, // we need timezone annotation
+          },
+        }
       );
-      setSuggestions(
-        res.data.results.map((r) => ({
+
+      const opts =
+        res.data?.results?.map((r) => ({
           name: r.formatted,
-          lat: r.geometry.lat.toFixed(2),
-          lon: r.geometry.lng.toFixed(2),
-          tz: r.annotations?.timezone?.offset_string || "",
-        }))
-      );
+          lat: Number(r.geometry.lat).toFixed(2),
+          lon: Number(r.geometry.lng).toFixed(2),
+          tzOffsetStr: r.annotations?.timezone?.offset_string || "", // e.g. "UTC-04:00"
+        })) || [];
+
+      setSuggestions(opts);
     } catch (err) {
       console.error("City search failed:", err);
+      setSuggestions([]);
     }
   };
 
-  // 🧭 When city selected → fill coordinates + tz
+  // parse "UTC+05:30" or "UTC-04:00" -> number (e.g., 5.5 or -4)
+  const parseUtcOffsetToNumber = (offsetStr) => {
+    if (!offsetStr?.startsWith("UTC")) return "";
+    const sign = offsetStr.includes("-") ? -1 : 1;
+    const [hh, mm] = offsetStr.replace("UTC", "").replace("+", "").replace("-", "").split(":");
+    const h = Number(hh || 0);
+    const m = Number(mm || 0);
+    const val = sign * (h + m / 60);
+    return Number.isFinite(val) ? Number(val.toFixed(2)) : "";
+  };
+
   const handleSelectCity = (city) => {
     setCityQuery(city.name);
     setLat(city.lat);
     setLon(city.lon);
-    if (city.tz) {
-      const tzNum = parseFloat(city.tz.replace("UTC", ""));
-      setTz(tzNum);
-    }
+    const parsedTz = parseUtcOffsetToNumber(city.tzOffsetStr);
+    if (parsedTz !== "") setTz(parsedTz);
     setSuggestions([]);
   };
 
-  // 🔮 Submit for reading
+  // --- Submit form ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError("");
     setLoading(true);
     setReading("");
     setLagna(null);
 
+    // quick validations
+    if (!date || !time) {
+      setFormError("Please provide date and time of birth.");
+      setLoading(false);
+      return;
+    }
+    const latNum = Number(lat);
+    const lonNum = Number(lon);
+    const tzNum = Number(tz);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) || !Number.isFinite(tzNum)) {
+      setFormError("Latitude, Longitude and Time Zone must be valid numbers.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await axios.post(
-        "https://rajusoracle1-0.onrender.com/api/reading",
-        { date, time, lat, lon, tz }
-      );
-      setLagna(res.data.lagnaData);
-      setReading(res.data.reading);
+      const res = await api.post("/api/reading", {
+        date,
+        time,
+        lat: latNum,
+        lon: lonNum,
+        tz: tzNum,
+      });
+
+      // Expecting { reading, lagnaData }
+      setLagna(res.data?.lagnaData || null);
+      setReading(res.data?.reading || "");
     } catch (err) {
-      console.error(err);
-      setReading("⚠️ Something went wrong while fetching your chart.");
+      console.error("Reading fetch failed:", err);
+      setFormError("Something went wrong while fetching your chart.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +140,7 @@ function App() {
         🔮 Raju’s Oracle
       </h1>
       <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
+        Enter your birth details to reveal your Lagna chart and a personalized reading.
       </p>
 
       {/* FORM */}
@@ -107,25 +164,24 @@ function App() {
             required
           />
 
-          {/* 🌍 City Autocomplete */}
+          {/* City Autocomplete */}
           <div className="col-span-2 relative">
             <input
               type="text"
-              placeholder="Enter City"
+              placeholder="Enter City (worldwide)"
               value={cityQuery}
               onChange={(e) => handleCitySearch(e.target.value)}
               className="p-2 w-full rounded-md text-black"
-              required
             />
             {suggestions.length > 0 && (
-              <ul className="absolute z-10 bg-white text-black rounded-md shadow-lg mt-1 w-full max-h-40 overflow-y-auto">
+              <ul className="absolute z-10 bg-white text-black rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
                 {suggestions.map((city, i) => (
                   <li
-                    key={i}
+                    key={`${city.name}-${i}`}
                     onClick={() => handleSelectCity(city)}
                     className="px-2 py-1 hover:bg-purple-100 cursor-pointer text-sm"
                   >
-                    {city.name} ({city.tz || "UTC"})
+                    {city.name} {city.tzOffsetStr ? `(${city.tzOffsetStr})` : ""}
                   </li>
                 ))}
               </ul>
@@ -155,8 +211,8 @@ function App() {
           {/* Time Zone (auto-filled but editable) */}
           <input
             type="number"
-            step="0.1"
-            placeholder="Time Zone (e.g. -4)"
+            step="0.25"
+            placeholder="Time Zone (e.g. -4, 5.5)"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
             className="col-span-2 p-2 rounded-md text-black"
@@ -164,11 +220,14 @@ function App() {
           />
         </div>
 
-        {/* Submit Button */}
+        {formError && (
+          <p className="text-red-400 text-sm mt-3">{formError}</p>
+        )}
+
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all"
+          className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all disabled:opacity-60"
         >
           {loading ? "Calculating..." : "Reveal My Oracle"}
         </button>
@@ -180,13 +239,25 @@ function App() {
           <h2 className="text-3xl font-semibold text-purple-300 mb-6">
             🪔 Lagna Chart
           </h2>
-          <LagnaChart houses={lagna.houses} />
+
+          {/* Ensure houses exist before rendering */}
+          {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
+            <LagnaChart
+              houses={lagna.houses}
+              ascendant={lagna.ascendant}
+              planets={lagna.planets}
+            />
+          ) : (
+            <p className="text-gray-300">No house data returned.</p>
+          )}
+
+          {/* Reading */}
           <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
             </h3>
             <p className="whitespace-pre-line leading-relaxed text-gray-200">
-              {reading}
+              {reading || "No reading yet."}
             </p>
           </div>
         </div>
