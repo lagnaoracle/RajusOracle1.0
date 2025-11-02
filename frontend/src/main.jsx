@@ -16,6 +16,7 @@ function App() {
   const [lagna, setLagna] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // 🌍 Autocomplete city search
   const handleCitySearch = async (query) => {
     setCityQuery(query);
     if (query.length < 3) {
@@ -34,6 +35,7 @@ function App() {
           name: r.formatted,
           lat: r.geometry.lat.toFixed(2),
           lon: r.geometry.lng.toFixed(2),
+          tz: r.annotations?.timezone?.offset_string || "",
         }))
       );
     } catch (err) {
@@ -41,13 +43,19 @@ function App() {
     }
   };
 
+  // 🧭 When city selected → fill coordinates + tz
   const handleSelectCity = (city) => {
     setCityQuery(city.name);
     setLat(city.lat);
     setLon(city.lon);
+    if (city.tz) {
+      const tzNum = parseFloat(city.tz.replace("UTC", ""));
+      setTz(tzNum);
+    }
     setSuggestions([]);
   };
 
+  // 🔮 Submit for reading
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -75,9 +83,10 @@ function App() {
         🔮 Raju’s Oracle
       </h1>
       <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and personalized astrological reading.
+        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
       </p>
 
+      {/* FORM */}
       <form
         onSubmit={handleSubmit}
         className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full relative"
@@ -116,7 +125,7 @@ function App() {
                     onClick={() => handleSelectCity(city)}
                     className="px-2 py-1 hover:bg-purple-100 cursor-pointer text-sm"
                   >
-                    {city.name}
+                    {city.name} ({city.tz || "UTC"})
                   </li>
                 ))}
               </ul>
@@ -143,7 +152,7 @@ function App() {
             required
           />
 
-          {/* Time Zone */}
+          {/* Time Zone (auto-filled but editable) */}
           <input
             type="number"
             step="0.1"
@@ -155,6 +164,7 @@ function App() {
           />
         </div>
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}
@@ -164,7 +174,7 @@ function App() {
         </button>
       </form>
 
-      {/* --- Results --- */}
+      {/* RESULTS */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
           <h2 className="text-3xl font-semibold text-purple-300 mb-6">
@@ -175,7 +185,9 @@ function App() {
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
             </h3>
-            <p className="whitespace-pre-line leading-relaxed text-gray-200">{reading}</p>
+            <p className="whitespace-pre-line leading-relaxed text-gray-200">
+              {reading}
+            </p>
           </div>
         </div>
       )}
