@@ -1,11 +1,12 @@
 {
   "name": "raju-oracle-backend",
   "version": "1.0.0",
-  "description": "Simple Express backend for Raju's Oracle",
+  "description": "Backend API for Raju's Oracle — computes Lagna chart and generates AI reading.",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "axios": "^1.6.8",
@@ -13,9 +14,24 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.3",
+    "moment-timezone": "^0.5.45",
+    "morgan": "^1.10.0",
+    "path": "^0.12.7",
     "swisseph": "https://github.com/cyjoelchen/node-swisseph.git"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   },
   "engines": {
     "node": ">=18.x"
-  }
+  },
+  "keywords": [
+    "vedic-astrology",
+    "lagna-chart",
+    "openai",
+    "express",
+    "api"
+  ],
+  "author": "Raju's Oracle Team",
+  "license": "MIT"
 }
