@@ -42,7 +42,8 @@ function App() {
       </h1>
 
       <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
+        Enter your birth details to reveal your Lagna chart and a personalized
+        astrological reading.
       </p>
 
       <form onSubmit={handleSubmit} className="card max-w-lg w-full">
@@ -59,6 +60,25 @@ function App() {
             onChange={(e) => setTime(e.target.value)}
             required
           />
+
+          {/* 🌆 City Dropdown (Venezuela) */}
+          <select
+            value={lat && lon ? `${lat},${lon}` : ""}
+            onChange={(e) => {
+              const [newLat, newLon] = e.target.value.split(",");
+              setLat(newLat);
+              setLon(newLon);
+            }}
+            className="col-span-2 p-2 rounded-md text-black"
+          >
+            <option value="">Select City</option>
+            <option value="10.49,-66.88">Caracas</option>
+            <option value="11.24,-72.63">Maracaibo</option>
+            <option value="10.18,-64.68">Barcelona</option>
+            <option value="8.93,-67.43">San Fernando de Apure</option>
+            <option value="9.32,-66.59">Calabozo</option>
+          </select>
+
           <input
             type="number"
             step="0.01"
@@ -75,10 +95,11 @@ function App() {
             onChange={(e) => setLon(e.target.value)}
             required
           />
+
           <input
             type="number"
             step="0.1"
-            placeholder="Time Zone (e.g. 5.5)"
+            placeholder="Time Zone (e.g. -4)"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
             className="col-span-2"
@@ -86,10 +107,31 @@ function App() {
           />
         </div>
 
+        {/* 📍 Use My Location Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setLat(pos.coords.latitude.toFixed(2));
+                  setLon(pos.coords.longitude.toFixed(2));
+                },
+                () => alert("Unable to fetch location. Please allow access.")
+              );
+            } else {
+              alert("Geolocation not supported by your browser.");
+            }
+          }}
+          className="mt-4 w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-md text-sm text-gray-300 transition-all"
+        >
+          📍 Use My Current Location
+        </button>
+
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full py-2 font-semibold transition-all"
+          className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all"
         >
           {loading ? "Calculating..." : "Reveal My Oracle"}
         </button>
