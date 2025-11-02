@@ -1,0 +1,50 @@
+.chart-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 340px;
+  height: 340px;
+  margin: 2rem auto;
+}
+
+.diamond {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: rotate(45deg);
+  border: 2px solid #a855f7;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  background: rgba(30, 0, 60, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  animation: glowRotate 20s linear infinite alternate;
+}
+
+@keyframes glowRotate {
+  0% { box-shadow: 0 0 15px #a855f7; }
+  100% { box-shadow: 0 0 35px #c77dff; }
+}
+
+.house {
+  position: absolute;
+  color: #e9d5ff;
+  text-align: center;
+  width: 80px;
+  transform: rotate(-45deg);
+}
+
+.house-num {
+  font-weight: bold;
+  color: #f0abfc;
+}
+
+.sign {
+  font-size: 0.8rem;
+  color: #d8b4fe;
+}
+
+.planets {
+  font-size: 0.7rem;
+  color: #c4b5fd;
+}
