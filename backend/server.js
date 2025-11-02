@@ -1,43 +1,67 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
-import morgan from "morgan";
 import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+import morgan from "morgan";
 import { calculateLagna } from "./utils/lagna.js";
+import OpenAI from "openai";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(morgan("dev"));
 
-// Health check
-app.get("/", (req, res) => {
-  res.send("🪐 Raju's Oracle backend is running!");
-});
+const PORT = process.env.PORT || 10000;
 
-// API endpoint
+// ✅ Lagna route
 app.post("/api/lagna", (req, res) => {
   try {
     const { date, time, lat, lon, tz } = req.body;
     const result = calculateLagna(date, time, lat, lon, tz);
     res.json(result);
-  } catch (error) {
-    console.error("Lagna error:", error);
-    res.status(500).json({ error: "Failed to calculate Lagna." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lagna calculation failed" });
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// ✅ AI Reading route
+app.post("/api/reading", async (req, res) => {
+  try {
+    const { date, time, lat, lon, tz } = req.body;
+    const lagnaData = calculateLagna(date, time, lat, lon, tz);
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const prompt = `
+    You are an expert Vedic astrologer. Based on the following planetary and ascendant data,
+    write a personal astrology reading in natural, poetic language (avoid technical jargon).
+
+    --- DATA ---
+    ${JSON.stringify(lagnaData, null, 2)}
+    --- END DATA ---
+    `;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a kind and insightful Vedic astrologer." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+    });
+
+    const reading = completion.choices[0].message.content;
+    res.json({ reading, lagnaData });
+  } catch (err) {
+    console.error("AI reading error:", err);
+    res.status(500).json({ error: "Failed to generate reading" });
+  }
 });
+
+// ✅ Start server
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
