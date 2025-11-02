@@ -7,6 +7,8 @@ import LagnaChart from "./components/LagnaChart";
 function App() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [tz, setTz] = useState("");
@@ -14,7 +16,38 @@ function App() {
   const [lagna, setLagna] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 🧠 Submit birth details to backend
+  const handleCitySearch = async (query) => {
+    setCityQuery(query);
+    if (query.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const apiKey = import.meta.env.VITE_OPENCAGE_KEY;
+      const res = await axios.get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+          query
+        )}&key=${apiKey}&limit=5`
+      );
+      setSuggestions(
+        res.data.results.map((r) => ({
+          name: r.formatted,
+          lat: r.geometry.lat.toFixed(2),
+          lon: r.geometry.lng.toFixed(2),
+        }))
+      );
+    } catch (err) {
+      console.error("City search failed:", err);
+    }
+  };
+
+  const handleSelectCity = (city) => {
+    setCityQuery(city.name);
+    setLat(city.lat);
+    setLon(city.lon);
+    setSuggestions([]);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -38,18 +71,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black text-white flex flex-col items-center py-10 px-4">
-      {/* Header */}
       <h1 className="text-5xl font-bold text-purple-300 mb-4 tracking-wide">
         🔮 Raju’s Oracle
       </h1>
       <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
+        Enter your birth details to reveal your Lagna chart and personalized astrological reading.
       </p>
 
-      {/* Form */}
       <form
         onSubmit={handleSubmit}
-        className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full"
+        className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full relative"
       >
         <div className="grid grid-cols-2 gap-4">
           <input
@@ -67,28 +98,30 @@ function App() {
             required
           />
 
-          {/* 🌆 Venezuela City Dropdown */}
-          <select
-            value={lat && lon ? `${lat},${lon}` : ""}
-            onChange={(e) => {
-              const [newLat, newLon] = e.target.value.split(",");
-              setLat(newLat);
-              setLon(newLon);
-            }}
-            className="col-span-2 p-2 rounded-md text-black"
-          >
-            <option value="">Select City (Venezuela)</option>
-            <option value="10.49,-66.88">Caracas</option>
-            <option value="11.24,-72.63">Maracaibo</option>
-            <option value="10.18,-64.68">Barcelona</option>
-            <option value="8.93,-67.43">San Fernando de Apure</option>
-            <option value="9.32,-66.59">Calabozo</option>
-            <option value="10.48,-68.00">Valencia</option>
-            <option value="10.23,-67.60">Maracay</option>
-            <option value="10.15,-66.88">La Guaira</option>
-            <option value="8.29,-62.72">Ciudad Guayana</option>
-            <option value="10.35,-66.98">Los Teques</option>
-          </select>
+          {/* 🌍 City Autocomplete */}
+          <div className="col-span-2 relative">
+            <input
+              type="text"
+              placeholder="Enter City"
+              value={cityQuery}
+              onChange={(e) => handleCitySearch(e.target.value)}
+              className="p-2 w-full rounded-md text-black"
+              required
+            />
+            {suggestions.length > 0 && (
+              <ul className="absolute z-10 bg-white text-black rounded-md shadow-lg mt-1 w-full max-h-40 overflow-y-auto">
+                {suggestions.map((city, i) => (
+                  <li
+                    key={i}
+                    onClick={() => handleSelectCity(city)}
+                    className="px-2 py-1 hover:bg-purple-100 cursor-pointer text-sm"
+                  >
+                    {city.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* Lat & Lon */}
           <input
@@ -122,7 +155,6 @@ function App() {
           />
         </div>
 
-        {/* 🔮 Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -132,24 +164,18 @@ function App() {
         </button>
       </form>
 
-      {/* --- Result Section --- */}
+      {/* --- Results --- */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
           <h2 className="text-3xl font-semibold text-purple-300 mb-6">
             🪔 Lagna Chart
           </h2>
-
-          {/* Diamond Chart */}
           <LagnaChart houses={lagna.houses} />
-
-          {/* Reading */}
           <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
             </h3>
-            <p className="whitespace-pre-line leading-relaxed text-gray-200">
-              {reading}
-            </p>
+            <p className="whitespace-pre-line leading-relaxed text-gray-200">{reading}</p>
           </div>
         </div>
       )}
