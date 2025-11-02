@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
 import "./index.css";
+import LagnaChart from "./components/LagnaChart";
 
 function App() {
   const [date, setDate] = useState("");
@@ -39,25 +40,23 @@ function App() {
       <h1 className="text-5xl font-bold text-purple-300 mb-8 tracking-wide">
         🔮 Raju’s Oracle
       </h1>
+
       <p className="text-gray-300 mb-6 text-center max-w-xl">
         Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
       </p>
 
-     <form onSubmit={handleSubmit} className="card max-w-lg w-full">
-
+      <form onSubmit={handleSubmit} className="card max-w-lg w-full">
         <div className="grid grid-cols-2 gap-4">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="p-2 rounded-md text-black"
             required
           />
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="p-2 rounded-md text-black"
             required
           />
           <input
@@ -66,7 +65,6 @@ function App() {
             placeholder="Latitude"
             value={lat}
             onChange={(e) => setLat(e.target.value)}
-            className="p-2 rounded-md text-black"
             required
           />
           <input
@@ -75,7 +73,6 @@ function App() {
             placeholder="Longitude"
             value={lon}
             onChange={(e) => setLon(e.target.value)}
-            className="p-2 rounded-md text-black"
             required
           />
           <input
@@ -84,7 +81,7 @@ function App() {
             placeholder="Time Zone (e.g. 5.5)"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
-            className="p-2 rounded-md text-black col-span-2"
+            className="col-span-2"
             required
           />
         </div>
@@ -92,7 +89,7 @@ function App() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all"
+          className="mt-6 w-full py-2 font-semibold transition-all"
         >
           {loading ? "Calculating..." : "Reveal My Oracle"}
         </button>
@@ -101,33 +98,21 @@ function App() {
       {/* --- RESULT SECTION --- */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
-          <h2 className="text-3xl font-semibold text-purple-300 mb-6">🪔 Lagna Chart</h2>
+          <h2 className="text-3xl font-semibold text-purple-300 mb-6">
+            🪔 Lagna Chart
+          </h2>
 
           {/* Diamond Vedic Chart */}
-          <div className="relative w-[320px] h-[320px] mx-auto border-2 border-purple-600 rotate-45">
-            {lagna.houses.map((house, i) => (
-              <div
-                key={house.number}
-                className="absolute flex flex-col justify-center items-center text-xs text-purple-200"
-                style={{
-                  transform: "rotate(-45deg)",
-                  top: i < 4 ? `${i * 25}%` : i < 8 ? `${(i - 4) * 25}%` : `${(i - 8) * 25}%`,
-                  left: i < 4 ? "0%" : i < 8 ? "50%" : "25%",
-                }}
-              >
-                <p className="font-semibold">H{house.number}</p>
-                <p>{house.sign}</p>
-                <p className="text-gray-400">{house.planets.join(", ") || "—"}</p>
-              </div>
-            ))}
-          </div>
+          <LagnaChart houses={lagna.houses} />
 
-          {/* Reading */}
-          <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
+          {/* Reading Section */}
+          <div className="mt-10 card text-left max-w-2xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
             </h3>
-            <p className="whitespace-pre-line leading-relaxed text-gray-200">{reading}</p>
+            <p className="whitespace-pre-line leading-relaxed text-gray-200">
+              {reading}
+            </p>
           </div>
         </div>
       )}
