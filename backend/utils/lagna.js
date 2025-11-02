@@ -1,5 +1,5 @@
 // utils/lagna.js
-import swe from "swisseph";
+import swisseph from 'swisseph-latest';
 
 export async function computeLagna({ date, time, lat, lon, tz }) {
   return new Promise((resolve, reject) => {
