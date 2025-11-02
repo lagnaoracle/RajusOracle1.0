@@ -1,51 +1,80 @@
 import * as Astronomy from "astronomy-engine";
-import moment from "moment-timezone";
 
 /**
- * Compute Lagna (Ascendant) and planetary positions
+ * Calculates a simplified Lagna chart with planetary positions
+ * and house assignments based on provided birth details.
  */
 export function calculateLagna(date, time, lat, lon, tz) {
   try {
-    // Combine date and time in local timezone
-    const dateTimeString = `${date} ${time}`;
-    const localTime = moment.tz(dateTimeString, "YYYY-MM-DD HH:mm", tz * 60).toDate();
+    // Combine date + time and adjust timezone
+    const birthDateTime = new Date(`${date}T${time}:00`);
+    const utcDate = new Date(birthDateTime.getTime() - tz * 3600 * 1000);
 
-    // Create observer
+    // Convert to Julian date for Astronomy-engine
     const observer = new Astronomy.Observer(lat, lon, 0);
-    const astroTime = Astronomy.MakeTime(localTime);
 
-    // Compute sidereal time and ascendant
-    const siderealTime = Astronomy.SiderealTime(astroTime);
-    const ascendantLongitude = (siderealTime * 15 + lon) % 360;
+    // Define planets we care about
+    const planetList = [
+      "Sun",
+      "Moon",
+      "Mercury",
+      "Venus",
+      "Mars",
+      "Jupiter",
+      "Saturn"
+    ];
 
-    // Compute planet positions
-    const planets = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"];
-    const planetPositions = {};
-
-    planets.forEach((planet) => {
-      const body = Astronomy.Body[planet];
-      const equ = Astronomy.Equator(body, astroTime, observer, true, true);
-      const hor = Astronomy.Horizon(astroTime, observer, equ.ra, equ.dec, "normal");
-      planetPositions[planet] = {
-        altitude: hor.altitude.toFixed(2),
-        azimuth: hor.azimuth.toFixed(2),
+    // Calculate ecliptic longitudes
+    const planetPositions = planetList.map((name) => {
+      const body = Astronomy.Body[name];
+      const ecl = Astronomy.EclipticGeo(body, utcDate);
+      const longitude = ecl.elon; // ecliptic longitude
+      const signIndex = Math.floor(longitude / 30);
+      const signs = [
+        "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+      ];
+      return {
+        name,
+        longitude: longitude.toFixed(2),
+        sign: signs[signIndex]
       };
     });
 
-    // 12 houses (each 30° apart)
-    const houses = {};
-    for (let i = 1; i <= 12; i++) {
-      houses[`House_${i}`] = ((ascendantLongitude + (i - 1) * 30) % 360).toFixed(2);
-    }
+    // Calculate Ascendant (Lagna)
+    const earthRotation = Astronomy.Rotation_EQD_HOR(utcDate, observer);
+    const ascendantLongitude = (earthRotation.rot[0] * 180) / Math.PI;
+    const signs = [
+      "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+      "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+    ];
+    const ascSignIndex = Math.floor(((ascendantLongitude % 360) + 360) % 360 / 30);
+    const ascSign = signs[ascSignIndex];
 
-    return {
-      ascendantLongitude: ascendantLongitude.toFixed(2),
-      siderealTime: siderealTime.toFixed(2),
-      planets: planetPositions,
+    // Build simplified house structure
+    const houses = Array.from({ length: 12 }, (_, i) => {
+      const sign = signs[(ascSignIndex + i) % 12];
+      const planets = planetPositions
+        .filter((p) => p.sign === sign)
+        .map((p) => p.name);
+      return { number: i + 1, sign, planets };
+    });
+
+    // Final chart
+    const chart = {
+      ascendant: ascSign,
       houses,
+      planets: planetPositions
     };
-  } catch (err) {
-    console.error("Lagna calculation error:", err);
-    return { error: "Calculation failed" };
+
+    return chart;
+  } catch (error) {
+    console.error("Lagna calculation error:", error);
+    return {
+      ascendant: null,
+      houses: [],
+      planets: [],
+      error: error.message
+    };
   }
 }
