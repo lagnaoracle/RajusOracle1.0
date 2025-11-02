@@ -17,7 +17,7 @@
     "moment-timezone": "^0.5.45",
     "morgan": "^1.10.0",
     "path": "^0.12.7",
-    "swisseph": "github:cyjoelchen/node-swisseph"
+    "swisseph": "https://github.com/cyjoelchen/node-swisseph.git#master"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
