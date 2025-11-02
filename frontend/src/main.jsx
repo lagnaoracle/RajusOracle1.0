@@ -14,6 +14,7 @@ function App() {
   const [lagna, setLagna] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // 🧠 Submit birth details to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -29,39 +30,59 @@ function App() {
       setReading(res.data.reading);
     } catch (err) {
       console.error(err);
-      setReading("Something went wrong while fetching your chart.");
+      setReading("⚠️ Something went wrong while fetching your chart.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 📍 Use browser geolocation
+  const handleUseLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLat(pos.coords.latitude.toFixed(2));
+          setLon(pos.coords.longitude.toFixed(2));
+        },
+        () => alert("Unable to fetch your location. Please allow permission.")
+      );
+    } else {
+      alert("Geolocation not supported by your browser.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black text-white flex flex-col items-center py-10 px-4">
-      <h1 className="text-5xl font-bold text-purple-300 mb-8 tracking-wide">
+      {/* Header */}
+      <h1 className="text-5xl font-bold text-purple-300 mb-4 tracking-wide">
         🔮 Raju’s Oracle
       </h1>
-
       <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and a personalized
-        astrological reading.
+        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
       </p>
 
-      <form onSubmit={handleSubmit} className="card max-w-lg w-full">
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full"
+      >
         <div className="grid grid-cols-2 gap-4">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            className="p-2 rounded-md text-black"
             required
           />
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
+            className="p-2 rounded-md text-black"
             required
           />
 
-          {/* 🌆 City Dropdown (Venezuela) */}
+          {/* 🌆 Venezuela City Dropdown */}
           <select
             value={lat && lon ? `${lat},${lon}` : ""}
             onChange={(e) => {
@@ -71,20 +92,27 @@ function App() {
             }}
             className="col-span-2 p-2 rounded-md text-black"
           >
-            <option value="">Select City</option>
+            <option value="">Select City (Venezuela)</option>
             <option value="10.49,-66.88">Caracas</option>
             <option value="11.24,-72.63">Maracaibo</option>
             <option value="10.18,-64.68">Barcelona</option>
             <option value="8.93,-67.43">San Fernando de Apure</option>
             <option value="9.32,-66.59">Calabozo</option>
+            <option value="10.48,-68.00">Valencia</option>
+            <option value="10.23,-67.60">Maracay</option>
+            <option value="10.15,-66.88">La Guaira</option>
+            <option value="8.29,-62.72">Ciudad Guayana</option>
+            <option value="10.35,-66.98">Los Teques</option>
           </select>
 
+          {/* Lat & Lon */}
           <input
             type="number"
             step="0.01"
             placeholder="Latitude"
             value={lat}
             onChange={(e) => setLat(e.target.value)}
+            className="p-2 rounded-md text-black"
             required
           />
           <input
@@ -93,16 +121,18 @@ function App() {
             placeholder="Longitude"
             value={lon}
             onChange={(e) => setLon(e.target.value)}
+            className="p-2 rounded-md text-black"
             required
           />
 
+          {/* Time Zone */}
           <input
             type="number"
             step="0.1"
             placeholder="Time Zone (e.g. -4)"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
-            className="col-span-2"
+            className="col-span-2 p-2 rounded-md text-black"
             required
           />
         </div>
@@ -110,24 +140,13 @@ function App() {
         {/* 📍 Use My Location Button */}
         <button
           type="button"
-          onClick={() => {
-            if (navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                  setLat(pos.coords.latitude.toFixed(2));
-                  setLon(pos.coords.longitude.toFixed(2));
-                },
-                () => alert("Unable to fetch location. Please allow access.")
-              );
-            } else {
-              alert("Geolocation not supported by your browser.");
-            }
-          }}
+          onClick={handleUseLocation}
           className="mt-4 w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-md text-sm text-gray-300 transition-all"
         >
           📍 Use My Current Location
         </button>
 
+        {/* 🔮 Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -137,18 +156,18 @@ function App() {
         </button>
       </form>
 
-      {/* --- RESULT SECTION --- */}
+      {/* --- Result Section --- */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
           <h2 className="text-3xl font-semibold text-purple-300 mb-6">
             🪔 Lagna Chart
           </h2>
 
-          {/* Diamond Vedic Chart */}
+          {/* Diamond Chart */}
           <LagnaChart houses={lagna.houses} />
 
-          {/* Reading Section */}
-          <div className="mt-10 card text-left max-w-2xl mx-auto">
+          {/* Reading */}
+          <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
             </h3>
