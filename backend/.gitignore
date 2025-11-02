@@ -1,2 +1,29 @@
-node_modules
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Build and cache
+dist/
+build/
+.cache/
+.next/
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+
+# Render logs
+render-build.sh
