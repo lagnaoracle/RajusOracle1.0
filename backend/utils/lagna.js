@@ -1,30 +1,18 @@
-import swisseph from "swisseph-latest";
-import moment from "moment-timezone";
+import { AstroTime, Equatorial, SiderealTime } from "astronomy-engine";
 
-export async function calculateLagna(date, time, lat, lon, tz) {
-  return new Promise((resolve, reject) => {
-    try {
-      const datetime = moment.tz(`${date} ${time}`, "YYYY-MM-DD HH:mm", tz);
-      const julianDay = swisseph.swe_julday(
-        datetime.year(),
-        datetime.month() + 1,
-        datetime.date(),
-        datetime.hour() + datetime.minute() / 60
-      );
+export function calculateLagna(date, time, lat, lon, tz) {
+  // Combine date & time into a single UTC timestamp
+  const localDateTime = new Date(`${date}T${time}:00`);
+  const utc = new Date(localDateTime.getTime() - tz * 3600 * 1000);
 
-      swisseph.swe_houses(
-        julianDay,
-        lat,
-        lon,
-        "P",
-        (result) => {
-          if (result.error) return reject(result.error);
-          const ascendant = result.ascendant;
-          resolve({ ascendant, houses: result.houses });
-        }
-      );
-    } catch (err) {
-      reject(err);
-    }
-  });
+  const astroTime = new AstroTime(utc);
+  const sidereal = SiderealTime(astroTime);
+
+  // Simplified Lagna calculation
+  const ascendantDeg = (sidereal * 15 + lon) % 360;
+
+  return {
+    ascendant: ascendantDeg.toFixed(2),
+    debug: { date, time, lat, lon, tz }
+  };
 }
