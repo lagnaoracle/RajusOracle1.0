@@ -84,14 +84,13 @@ const handleCitySearch = async (query) => {
     return Number.isFinite(val) ? Number(val.toFixed(2)) : "";
   };
 
-  const handleSelectCity = (city) => {
-    setCityQuery(city.name);
-    setLat(city.lat);
-    setLon(city.lon);
-    const parsedTz = parseUtcOffsetToNumber(city.tzOffsetStr);
-    if (parsedTz !== "") setTz(parsedTz);
-    setSuggestions([]);
-  };
+const handleSelectCity = (city) => {
+  setCityQuery(city.name);
+  setLat(city.lat);
+  setLon(city.lon);
+  setTz(city.tz); // numeric timezone already
+  setSuggestions([]);
+};
 
   // --- Submit form ---
   const handleSubmit = async (e) => {
