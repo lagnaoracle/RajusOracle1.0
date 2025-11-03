@@ -5,14 +5,11 @@ import axios from "axios";
 import "./index.css";
 import LagnaChart from "./components/LagnaChart";
 
-// ---- Config ----
 const API_BASE =
   (import.meta.env.VITE_API_BASE?.replace(/\/$/, "")) ||
   "https://rajusoracle1-0.onrender.com";
-
 const OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || "";
 
-// Axios instance
 const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
@@ -31,7 +28,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // 🌍 City autocomplete (OpenCage)
+  // --- City autocomplete ---
   const handleCitySearch = async (query) => {
     setCityQuery(query);
     if (!OPENCAGE_KEY || query.trim().length < 3) {
@@ -43,11 +40,10 @@ function App() {
         query
       )}&key=${OPENCAGE_KEY}&limit=5`;
       const { data } = await axios.get(url);
-
       const results =
         data?.results?.map((r) => {
           const offsetSec = r.annotations?.timezone?.offset_sec ?? 0;
-          const tzHours = +(offsetSec / 3600).toFixed(2); // keep numeric with 2 decimals
+          const tzHours = +(offsetSec / 3600).toFixed(2);
           return {
             name: r.formatted,
             lat: Number(r.geometry.lat).toFixed(2),
@@ -55,7 +51,6 @@ function App() {
             tz: tzHours,
           };
         }) || [];
-
       setSuggestions(results);
     } catch (err) {
       console.error("City search failed:", err);
@@ -63,16 +58,15 @@ function App() {
     }
   };
 
-  // 🧭 Select city -> fill coords + tz
   const handleSelectCity = (city) => {
     setCityQuery(city.name);
     setLat(city.lat);
     setLon(city.lon);
-    setTz(city.tz); // already numeric
+    setTz(city.tz);
     setSuggestions([]);
   };
 
-  // 🔮 Submit
+  // --- Form submit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -114,33 +108,50 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black text-white flex flex-col items-center py-10 px-4">
-      <h1 className="text-5xl font-bold text-purple-300 mb-4 tracking-wide">🔮 Raju’s Oracle</h1>
-      <p className="text-gray-300 mb-6 text-center max-w-xl">
-        Enter your birth details to reveal your Lagna chart and a personalized reading.
+    <div className="min-h-screen bg-gradient-to-b from-[#f4eee0] via-[#e6dcc0] to-[#f4eee0] text-[#2c2c2c] flex flex-col items-center py-10 px-4 font-sans">
+      <h1 className="text-5xl font-serif font-semibold text-[#3a2e1f] mb-4 tracking-wide">
+        Raju’s Oracle
+      </h1>
+      <p className="text-[#4a3b27] mb-8 text-center max-w-xl text-lg leading-relaxed">
+        Enter your birth details to reveal your Lagna chart and a personalized astrological reading.
       </p>
 
-      <form onSubmit={handleSubmit} className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full relative">
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#faf5e6]/90 border border-[#d7c9a3] backdrop-blur-sm p-6 rounded-xl shadow-lg max-w-lg w-full"
+      >
         <div className="grid grid-cols-2 gap-4">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="p-2 rounded-md text-black" required />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="p-2 rounded-md text-black" required />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="p-2 rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
+            required
+          />
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="p-2 rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
+            required
+          />
 
-          {/* City Autocomplete */}
           <div className="col-span-2 relative">
             <input
               type="text"
-              placeholder={`Enter City ${OPENCAGE_KEY ? "(worldwide)" : "(set VITE_OPENCAGE_KEY to enable search)"}`}
+              placeholder="Enter City"
               value={cityQuery}
               onChange={(e) => handleCitySearch(e.target.value)}
-              className="p-2 w-full rounded-md text-black"
+              className="p-2 w-full rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
             />
             {suggestions.length > 0 && (
-              <ul className="absolute z-10 bg-white text-black rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
+              <ul className="absolute z-10 bg-white text-[#2c2c2c] rounded-md shadow-md mt-1 w-full max-h-48 overflow-y-auto border border-[#bca98b]">
                 {suggestions.map((city, i) => (
                   <li
                     key={`${city.name}-${i}`}
                     onClick={() => handleSelectCity(city)}
-                    className="px-2 py-1 hover:bg-purple-100 cursor-pointer text-sm"
+                    className="px-2 py-1 hover:bg-[#f0e5c8] cursor-pointer text-sm"
                   >
                     {city.name} (UTC{city.tz >= 0 ? "+" : ""}{city.tz})
                   </li>
@@ -149,43 +160,67 @@ function App() {
             )}
           </div>
 
-          {/* Lat & Lon */}
-          <input type="number" step="0.01" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} className="p-2 rounded-md text-black" required />
-          <input type="number" step="0.01" placeholder="Longitude" value={lon} onChange={(e) => setLon(e.target.value)} className="p-2 rounded-md text-black" required />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Latitude"
+            value={lat}
+            onChange={(e) => setLat(e.target.value)}
+            className="p-2 rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
+            required
+          />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Longitude"
+            value={lon}
+            onChange={(e) => setLon(e.target.value)}
+            className="p-2 rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
+            required
+          />
 
-          {/* Time Zone (auto-filled but editable) */}
           <input
             type="number"
             step="0.25"
-            placeholder="Time Zone (auto-filled)"
+            placeholder="Time Zone"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
-            className="col-span-2 p-2 rounded-md text-black"
+            className="col-span-2 p-2 rounded-md border border-[#bca98b] bg-white/70 text-[#2c2c2c]"
             required
           />
         </div>
 
-        {formError && <p className="text-red-400 text-sm mt-3">{formError}</p>}
+        {formError && <p className="text-[#9b2915] text-sm mt-3">{formError}</p>}
 
-        <button type="submit" disabled={loading} className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all disabled:opacity-60">
-          {loading ? "Calculating..." : "Reveal My Oracle"}
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-6 w-full py-2 bg-[#c1a573] hover:bg-[#b49761] text-white rounded-md font-semibold transition-all disabled:opacity-60"
+        >
+          {loading ? "Calculating..." : "Reveal My Chart"}
         </button>
       </form>
 
-      {/* RESULTS */}
+      {/* Results */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
-          <h2 className="text-3xl font-semibold text-purple-300 mb-6">🪔 Lagna Chart</h2>
+          <h2 className="text-3xl font-serif font-semibold text-[#3a2e1f] mb-6">
+            Lagna Chart
+          </h2>
 
           {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
             <LagnaChart houses={lagna.houses} ascendant={lagna.ascendant} planets={lagna.planets} />
           ) : (
-            <p className="text-gray-300">No house data returned.</p>
+            <p className="text-[#4a3b27]">No house data returned.</p>
           )}
 
-          <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
-            <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">✨ Oracle Reading</h3>
-            <p className="whitespace-pre-line leading-relaxed text-gray-200">{reading || "No reading yet."}</p>
+          <div className="mt-10 bg-[#faf5e6]/90 border border-[#d7c9a3] p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
+            <h3 className="text-2xl font-serif font-semibold mb-4 text-center text-[#3a2e1f]">
+              Oracle Reading
+            </h3>
+            <p className="whitespace-pre-line leading-relaxed text-[#3c3325]">
+              {reading || "No reading yet."}
+            </p>
           </div>
         </div>
       )}
