@@ -4,59 +4,52 @@ import * as Astronomy from "astronomy-engine";
 /**
  * Returns a simplified chart:
  * - Geocentric ecliptic longitudes for Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn
- * - A very safe ascendant sign (with a fallback if we can't compute it)
- * - 12 houses labeled from the ascendant sign (fallback ascendant = Aries)
- *
- * This code NEVER throws: if any astronomy call fails, we still return a valid shape.
+ * - A safe ascendant sign (fallback to Aries if anything fails)
+ * - 12 houses labeled from the ascendant sign
  */
 export function calculateLagna(date, time, lat, lon, tz) {
-  // Ensure numbers
   const latNum = Number(lat);
-  const lonNum = Number(lon);
-  const tzNum = Number(tz);
+  const lonNum = Number(lon); // east positive, west negative
+  const tzNum  = Number(tz);
 
-  // Prepare time in UTC
+  // Local -> UTC
   const birthLocal = new Date(`${date}T${time}:00`);
-  const birthUTC = new Date(birthLocal.getTime() - tzNum * 3600 * 1000);
+  const birthUTC   = new Date(birthLocal.getTime() - tzNum * 3600 * 1000);
 
-  // Signs
   const SIGNS = [
     "Aries","Taurus","Gemini","Cancer","Leo","Virgo",
     "Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"
   ];
 
-  // --- Planets (never throw) ---
+  // --- Planet longitudes (robust) ---
   const wanted = ["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn"];
   const planets = [];
   for (const name of wanted) {
     try {
       const body = Astronomy.Body[name];
-      // Geocentric vector at UTC; 'true' = correct for light travel time/aberration.
-      const vec = Astronomy.GeoVector(body, birthUTC, true);
-      const ecl = Astronomy.Ecliptic(vec);              // -> { elon, elat } in degrees
+      const vec  = Astronomy.GeoVector(body, birthUTC, true); // geocentric
+      const ecl  = Astronomy.Ecliptic(vec);                   // { elon, elat } in degrees
       const elon = normalize360(ecl.elon);
       const sign = SIGNS[Math.floor(elon / 30)];
       planets.push({ name, longitude: round2(elon), sign });
     } catch (e) {
-      // If anything goes wrong, still push a placeholder so the UI doesn't break.
       planets.push({ name, longitude: null, sign: null, error: String(e?.message || e) });
     }
   }
 
-  // --- Ascendant sign (safe fallback) ---
-  // A precise Lagna needs more math (local sidereal time, ecliptic obliquity).
-  // To keep your app stable right now, we try a simple estimate;
-  // if anything fails, we default to Aries so houses still render.
-  let ascSignIndex = 0;  // 0=Aries fallback
+  // --- Ascendant sign (simple, safe estimate) ---
+  let ascSignIndex = 0; // fallback Aries
   try {
-    // Rough estimate: use local apparent sidereal time to derive a pseudo-longitude.
-    const observer = new Astronomy.Observer(latNum, lonNum, 0);
-    const gast = Astronomy.SiderealTime(birthUTC); // degrees (0..360)
-    // Project something stable into 0..360 and derive a sign.
-    const approxAscLong = normalize360(gast + lonNum);
+    // SiderealTime returns GAST in HOURS; convert to degrees.
+    const gastHours = Astronomy.SiderealTime(birthUTC); // 0..24 hours
+    const gastDeg   = gastHours * 15;                   // 0..360 degrees
+    // Local sidereal time (approx): add geographic longitude (degrees, east+).
+    const lstDeg    = normalize360(gastDeg + lonNum);
+    // Use as a pseudo ecliptic longitude proxy to pick a sign.
+    const approxAscLong = lstDeg;
     ascSignIndex = Math.floor(approxAscLong / 30) % 12;
   } catch {
-    // keep fallback (Aries)
+    // keep fallback
   }
   const ascendant = SIGNS[ascSignIndex];
 
@@ -71,12 +64,11 @@ export function calculateLagna(date, time, lat, lon, tz) {
     ascendant,
     houses,
     planets,
-    // keep a small meta to help you debug client-side if needed
     _meta: { utc: birthUTC.toISOString(), lat: latNum, lon: lonNum, tz: tzNum }
   };
 }
 
-// --- helpers ---
+// helpers
 function normalize360(x) {
   let v = x % 360;
   if (v < 0) v += 360;
