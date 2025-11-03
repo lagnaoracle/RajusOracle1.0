@@ -1,4 +1,3 @@
-// frontend/src/components/LagnaChart.jsx
 import React from "react";
 
 /**
@@ -21,30 +20,8 @@ export default function LagnaChart({ houses = [], ascendant, planets = [] }) {
     muted: "#6b5b45",
   };
 
-  // Planet symbols (clean, readable)
-  const SYM = {
-    Sun: "☉",
-    Moon: "☾",
-    Mercury: "☿",
-    Venus: "♀",
-    Mars: "♂",
-    Jupiter: "♃",
-    Saturn: "♄",
-    Rahu: "☊",
-    Ketu: "☋",
-  };
-
   // Helper: get a house by number safely
   const H = (n) => houses.find((h) => h.number === n) || { number: n, sign: "", planets: [] };
-
-  // Sort legend by typical Vedic order for a tidy look
-  const legendPlanets =
-    planets.length > 0
-      ? sortByList(
-          planets.map((p) => p.name).filter(Boolean),
-          ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
-        )
-      : [];
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -55,6 +32,7 @@ export default function LagnaChart({ houses = [], ascendant, planets = [] }) {
           background: "#f0e5c8",
           color: color.deep,
           border: `1px solid ${color.border}`,
+          textAlign: "center",
         }}
       >
         {ascendant ? `Ascendant: ${ascendant}` : "Lagna"}
@@ -69,64 +47,14 @@ export default function LagnaChart({ houses = [], ascendant, planets = [] }) {
       </div>
 
       {/* Legend (planet symbols) */}
-      <div className="mt-4 text-sm leading-6 text-center" style={{ color: color.muted }}>
-        <span className="font-medium" style={{ color: color.deep }}>
-          Planet Symbols:
-        </span>{" "}
-        {legendPlanets.length > 0
-          ? legendPlanets.map((name, i) => (
-              <span key={name}>
-                {i > 0 ? " · " : ""}
-                {SYM[name] || "•"} {name}
-              </span>
-            ))
-          : "Sun ☉, Moon ☾, Mars ♂, Mercury ☿, Jupiter ♃, Venus ♀, Saturn ♄"}
-      </div>
+      <Legend color={color} planets={planets} />
     </div>
   );
 }
 
-return (
-  <div
-    className="chart-wrapper"
-    style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "20px 0",
-      width: "100%",
-    }}
-  >
-    <div
-      style={{
-        width: "420px",
-        maxWidth: "90vw",
-        background: "var(--bg-soft)",
-        border: "1px solid var(--line)",
-        borderRadius: "16px",
-        boxShadow: "0 8px 24px rgba(58,46,31,.06)",
-        padding: "20px",
-      }}
-    >
-      <svg
-        viewBox="0 0 100 100"
-        style={{
-          width: "100%",
-          height: "auto",
-          display: "block",
-          margin: "0 auto",
-        }}
-      >
-        {/* (keep all your <g>, <line>, <House> elements as they are here) */}
-      </svg>
-    </div>
-  </div>
-);
-
 /** ---------------- SVG Chart ---------------- */
 function ChartSVG({ color, H }) {
   // The chart is drawn in a 100x100 viewBox and scales responsively.
-  // Typography sizes are relative so labels are readable on mobile.
   const stroke = color.gold;
   const textPrimary = color.deep;
   const textMuted = color.muted;
@@ -151,17 +79,15 @@ function ChartSVG({ color, H }) {
       <line x1="50" y1="3" x2="50" y2="97" stroke={stroke} strokeWidth="0.9" />
 
       {/* House labels (fixed positions for North Indian layout) */}
-      {/* Positions tuned for readability; each block shows House, Sign, Planets with wrapping */}
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(1)} x={50} y={20} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(2)} x={71} y={29} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(3)} x={86} y={44} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(4)} x={71} y={71} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(5)} x={50} y={80} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(6)} x={29} y={71} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(7)} x={14} y={44} />
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(8)} x={29} y={29} />
-      {/* Angular corners: show 9/10/11/12 subtly near corners for completeness */}
-      <HouseLabel color={{ textPrimary, textMuted }} house={H(9)} x={50} y={8} small />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(1)}  x={50} y={20} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(2)}  x={71} y={29} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(3)}  x={86} y={44} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(4)}  x={71} y={71} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(5)}  x={50} y={80} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(6)}  x={29} y={71} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(7)}  x={14} y={44} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(8)}  x={29} y={29} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(9)}  x={50} y={8}  small />
       <HouseLabel color={{ textPrimary, textMuted }} house={H(10)} x={85} y={18} small />
       <HouseLabel color={{ textPrimary, textMuted }} house={H(11)} x={85} y={82} small />
       <HouseLabel color={{ textPrimary, textMuted }} house={H(12)} x={15} y={82} small />
@@ -176,10 +102,8 @@ function HouseLabel({ color, house, x, y, small = false }) {
   const fontSign = small ? 3 : 3.2;
   const fontPlan = small ? 2.7 : 2.9;
 
-  // Build planet line as symbols + names truncated if too long
+  // Build planet string and wrap
   const planetsStr = (planets || []).join(", ");
-
-  // Helper to wrap to max chars per line for readability
   const lines = wrapText(planetsStr, small ? 14 : 18).slice(0, small ? 2 : 3);
 
   return (
@@ -230,10 +154,37 @@ function HouseLabel({ color, house, x, y, small = false }) {
   );
 }
 
-/** Utility: sort strings by a preferred list order */
-function sortByList(arr, order) {
-  const map = new Map(order.map((k, i) => [k, i]));
-  return [...new Set(arr)].sort((a, b) => (map.get(a) ?? 999) - (map.get(b) ?? 999));
+/** Legend: planet symbols (optional, minimal) */
+function Legend({ color, planets }) {
+  const SYM = {
+    Sun: "☉",
+    Moon: "☾",
+    Mercury: "☿",
+    Venus: "♀",
+    Mars: "♂",
+    Jupiter: "♃",
+    Saturn: "♄",
+    Rahu: "☊",
+    Ketu: "☋",
+  };
+
+  const names = (planets || []).map((p) => p.name).filter(Boolean);
+  const unique = [...new Set(names)];
+  if (unique.length === 0) return null;
+
+  return (
+    <div className="mt-4 text-sm leading-6 text-center" style={{ color: color.muted }}>
+      <span className="font-medium" style={{ color: color.deep }}>
+        Planet Symbols:
+      </span>{" "}
+      {unique.map((name, i) => (
+        <span key={name}>
+          {i > 0 ? " · " : ""}
+          {SYM[name] || "•"} {name}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /** Utility: naive text wrap to fixed width (characters) for SVG <text> */
