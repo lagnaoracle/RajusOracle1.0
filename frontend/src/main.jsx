@@ -6,13 +6,13 @@ import LagnaChart from "./components/LagnaChart";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-// ---- Config ----
+/** ---- Config ---- */
 const API_BASE =
-  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+  (import.meta.env.VITE_API_BASE?.replace(/\/$/, "")) ||
   "https://rajusoracle1-0.onrender.com";
 const VITE_OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || "";
 
-// Axios instance
+/** Axios instance */
 const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
@@ -31,36 +31,39 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // for exporting the combined chart+reading area
+  // wrapper for exporting chart + reading
   const exportRef = useRef(null);
 
-  // ---- City autocomplete ----
+  /** City autocomplete (OpenCage) */
   const handleCitySearch = async (query) => {
     setCityQuery(query);
+
     if (!VITE_OPENCAGE_KEY || query.trim().length < 3) {
       setSuggestions([]);
       return;
     }
+
     try {
       const { data } = await axios.get(
-        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
-          query
-        )}&key=${VITE_OPENCAGE_KEY}&limit=6`
+        "https://api.opencagedata.com/geocode/v1/json",
+        { params: { q: query, key: VITE_OPENCAGE_KEY, limit: 6 } }
       );
+
       const results =
         data?.results?.map((r) => {
           const offsetSec = r.annotations?.timezone?.offset_sec ?? 0;
-          const tzHours = offsetSec / 3600;
+          const tzHours = Number((offsetSec / 3600).toFixed(2));
           return {
             name: r.formatted,
             lat: Number(r.geometry.lat).toFixed(2),
             lon: Number(r.geometry.lng).toFixed(2),
-            tz: Number(tzHours.toFixed(2)),
+            tz: tzHours,
           };
         }) || [];
+
       setSuggestions(results);
     } catch (e) {
-      console.error("City search failed", e);
+      console.error("City search failed:", e);
       setSuggestions([]);
     }
   };
@@ -73,7 +76,7 @@ function App() {
     setSuggestions([]);
   };
 
-  // ---- Submit ----
+  /** Submit: ask backend for lagna + reading */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -105,7 +108,7 @@ function App() {
     }
   };
 
-  // ---- Export helpers ----
+  /** Export helpers */
   const exportPNG = async () => {
     if (!exportRef.current) return;
     const canvas = await html2canvas(exportRef.current, { backgroundColor: "#FFFFFF", scale: 2 });
@@ -120,20 +123,18 @@ function App() {
     if (!exportRef.current) return;
     const canvas = await html2canvas(exportRef.current, { backgroundColor: "#FFFFFF", scale: 2 });
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
-    // A4 portrait
-    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
-    const pageW = 210;
-    const pageH = 297;
-    const imgW = pageW - 20; // 10mm margin each side
-    const imgH = (canvas.height * imgW) / canvas.width;
-    let y = 10;
 
-    if (imgH < pageH - 20) {
-      pdf.addImage(imgData, "JPEG", 10, y, imgW, imgH);
+    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+    const pageW = 210, pageH = 297, margin = 10;
+    const imgW = pageW - margin * 2;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    if (imgH <= pageH - margin * 2) {
+      pdf.addImage(imgData, "JPEG", margin, margin, imgW, imgH);
     } else {
-      // paginate if needed
+      // paginate
       let sY = 0;
-      const pagePxH = Math.floor(canvas.width * (pageH - 20) / imgW);
+      const pagePxH = Math.floor(canvas.width * (pageH - margin * 2) / imgW);
       while (sY < canvas.height) {
         const pageCanvas = document.createElement("canvas");
         pageCanvas.width = canvas.width;
@@ -142,41 +143,32 @@ function App() {
         ctx.drawImage(canvas, 0, sY, canvas.width, pagePxH, 0, 0, canvas.width, pagePxH);
         const pageImg = pageCanvas.toDataURL("image/jpeg", 0.92);
         if (sY > 0) pdf.addPage();
-        pdf.addImage(pageImg, "JPEG", 10, 10, imgW, pageH - 20);
+        pdf.addImage(pageImg, "JPEG", margin, margin, imgW, pageH - margin * 2);
         sY += pagePxH;
       }
     }
-
     pdf.save("raju-oracle-reading.pdf");
   };
 
   return (
     <div className="container">
-      <header className="header fade-in">
-      <h1
-        className="title"
-        style={{
-          textAlign: "center",
-          color: "var(--accent-ink)",
-          fontSize: "48px",
-          fontWeight: "700",
-          letterSpacing: "0.5px",
-          marginBottom: "8px",
-         }}
-        >
-          Raju’s Oracle
-        </h1>
-
-        <p className="subtle">
+      {/* Header */}
+      <header style={{ textAlign: "center" }}>
+        <h1 className="title" style={{ marginBottom: 8 }}>Raju’s Oracle</h1>
+        <p className="subtitle">
           Enter your birth details to reveal your Lagna chart and a personalized reading.
         </p>
       </header>
 
-      {/* FORM */}
-      <form onSubmit={handleSubmit} className="card fade-in no-print" style={{maxWidth: 640, margin: "0 auto"}}>
-        <div className="grid">
-          <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} required />
-          <input type="time" value={time} onChange={(e)=>setTime(e.target.value)} required />
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="card section"
+        style={{ maxWidth: 640, margin: "0 auto" }}
+      >
+        <div className="grid grid-2">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
 
           {/* City autocomplete */}
           <div style={{ position: "relative", gridColumn: "1 / -1" }}>
@@ -189,59 +181,102 @@ function App() {
             {suggestions.length > 0 && (
               <ul className="suggest">
                 {suggestions.map((c, i) => (
-                  <li key={`${c.name}-${i}`} onClick={()=>handleSelectCity(c)}>
-                    {c.name} &nbsp; — &nbsp; UTC{c.tz >= 0 ? "+" : ""}{c.tz}
+                  <li key={`${c.name}-${i}`} onClick={() => handleSelectCity(c)}>
+                    {c.name} — UTC{c.tz >= 0 ? "+" : ""}{c.tz}
                   </li>
                 ))}
               </ul>
             )}
           </div>
 
-          <input type="number" step="0.01" placeholder="Latitude" value={lat} onChange={(e)=>setLat(e.target.value)} required />
-          <input type="number" step="0.01" placeholder="Longitude" value={lon} onChange={(e)=>setLon(e.target.value)} required />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Latitude"
+            value={lat}
+            onChange={(e) => setLat(e.target.value)}
+            required
+          />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Longitude"
+            value={lon}
+            onChange={(e) => setLon(e.target.value)}
+            required
+          />
 
-          <input type="number" step="0.25" placeholder="Time Zone (auto-filled)" value={tz} onChange={(e)=>setTz(e.target.value)} style={{gridColumn: "1 / -1"}} required />
+          <input
+            type="number"
+            step="0.25"
+            placeholder="Time Zone (auto-filled)"
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            style={{ gridColumn: "1 / -1" }}
+            required
+          />
         </div>
 
-        {formError && <p style={{color:"#b00020", marginTop:8}}>{formError}</p>}
+        {formError && <p className="err">{formError}</p>}
 
-        <div className="actions" style={{marginTop:16}}>
-          <button type="submit" className="primary" disabled={loading}>
-            {loading ? "Calculating…" : "Generate reading"}
-          </button>
-        </div>
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? "Calculating…" : "Generate reading"}
+        </button>
       </form>
 
-      {/* RESULTS */}
+      {/* Results */}
       {lagna && (
-        <section ref={exportRef} className="fade-in-slow" style={{marginTop: 32}}>
-          <div className="card" style={{maxWidth: 860, margin: "0 auto"}}>
-            <h2 style={{marginTop:0, marginBottom: 18}}>Lagna Chart</h2>
-            {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
-              <LagnaChart
-                houses={lagna.houses}
-                ascendant={lagna.ascendant}
-                planets={lagna.planets}
-              />
-            ) : (
-              <p className="subtle">No house data returned.</p>
-            )}
-          </div>
+        <>
+          <section
+            ref={exportRef}
+            className="section"
+            style={{ marginTop: 24, textAlign: "center" }}
+          >
+            <div className="card" style={{ maxWidth: 860, margin: "0 auto" }}>
+              <h2
+                style={{
+                  margin: "0 0 14px",
+                  fontSize: 26,
+                  fontWeight: 700,
+                  color: "var(--accent-ink)",
+                  textAlign: "center",
+                }}
+              >
+                Lagna Chart
+              </h2>
 
-            <div className="card" style={{maxWidth: 860, margin: "18px auto 0"}}>
-              <h2 style={{marginTop:0}}>Reading</h2>
-              <p style={{whiteSpace:"pre-line", lineHeight:1.7, color:"#333"}}>{reading || "No reading yet."}</p>
+              {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
+                <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+                  <LagnaChart
+                    houses={lagna.houses}
+                    ascendant={lagna.ascendant}
+                    planets={lagna.planets}
+                  />
+                </div>
+              ) : (
+                <p className="subtitle">No house data returned.</p>
+              )}
             </div>
-        </section>
-      )}
 
-      {/* Export / Print actions */}
-      {lagna && (
-        <div className="actions no-print fade-in" style={{marginTop: 16, justifyContent:"center"}}>
-          <button className="ghost" onClick={()=>window.print()}>Print</button>
-          <button className="ghost" onClick={exportPNG}>Download PNG</button>
-          <button className="primary" onClick={exportPDF}>Download PDF</button>
-        </div>
+            <div className="card" style={{ maxWidth: 860, margin: "16px auto 0" }}>
+              <h2 style={{ marginTop: 0 }}>Reading</h2>
+              <p style={{ whiteSpace: "pre-line", lineHeight: 1.7 }}>{reading || "No reading yet."}</p>
+            </div>
+          </section>
+
+          {/* Export buttons */}
+          <div className="section" style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16 }}>
+            <button className="btn" onClick={() => window.print()} style={{ maxWidth: 220 }}>
+              Print
+            </button>
+            <button className="btn" onClick={exportPNG} style={{ maxWidth: 220 }}>
+              Download PNG
+            </button>
+            <button className="btn btn-primary" onClick={exportPDF} style={{ maxWidth: 220 }}>
+              Download PDF
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
