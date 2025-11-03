@@ -86,6 +86,43 @@ export default function LagnaChart({ houses = [], ascendant, planets = [] }) {
   );
 }
 
+return (
+  <div
+    className="chart-wrapper"
+    style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "20px 0",
+      width: "100%",
+    }}
+  >
+    <div
+      style={{
+        width: "420px",
+        maxWidth: "90vw",
+        background: "var(--bg-soft)",
+        border: "1px solid var(--line)",
+        borderRadius: "16px",
+        boxShadow: "0 8px 24px rgba(58,46,31,.06)",
+        padding: "20px",
+      }}
+    >
+      <svg
+        viewBox="0 0 100 100"
+        style={{
+          width: "100%",
+          height: "auto",
+          display: "block",
+          margin: "0 auto",
+        }}
+      >
+        {/* (keep all your <g>, <line>, <House> elements as they are here) */}
+      </svg>
+    </div>
+  </div>
+);
+
 /** ---------------- SVG Chart ---------------- */
 function ChartSVG({ color, H }) {
   // The chart is drawn in a 100x100 viewBox and scales responsively.
