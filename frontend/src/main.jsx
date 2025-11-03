@@ -1,4 +1,4 @@
-// frontend/src/main.jsx
+    // frontend/src/main.jsx
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
@@ -31,68 +31,50 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
-// 🌍 Autocomplete city search
-const handleCitySearch = async (query) => {
-  setCityQuery(query);
-  if (query.length < 3) {
-    setSuggestions([]);
-    return;
-  }
-  try {
-    const apiKey = import.meta.env.VITE_OPENCAGE_KEY;
-    const res = await axios.get(
-      `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
-        query
-      )}&key=${apiKey}&limit=5`
-    );
-    setSuggestions(
-      res.data.results.map((r) => ({
-        name: r.formatted,
-        lat: r.geometry.lat.toFixed(2),
-        lon: r.geometry.lng.toFixed(2),
-        tz: r.annotations?.timezone?.offset_string || "",
-      }))
-    );
-  } catch (err) {
-    console.error("City search failed:", err);
-  }
-};
+  // 🌍 Autocomplete city search (OpenCage API)
+  const handleCitySearch = async (query) => {
+    setCityQuery(query);
+    if (query.length < 3) {
+      setSuggestions([]);
+      return;
+    }
 
-      const opts =
-        res.data?.results?.map((r) => ({
-          name: r.formatted,
-          lat: Number(r.geometry.lat).toFixed(2),
-          lon: Number(r.geometry.lng).toFixed(2),
-          tzOffsetStr: r.annotations?.timezone?.offset_string || "", // e.g. "UTC-04:00"
-        })) || [];
+    try {
+      const res = await axios.get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+          query
+        )}&key=${VITE_OPENCAGE_KEY}&limit=5`
+      );
 
-      setSuggestions(opts);
+      const results =
+        res.data?.results?.map((r) => {
+          const offsetSec = r.annotations?.timezone?.offset_sec ?? 0;
+          const tzHours = offsetSec / 3600;
+          return {
+            name: r.formatted,
+            lat: Number(r.geometry.lat).toFixed(2),
+            lon: Number(r.geometry.lng).toFixed(2),
+            tz: tzHours,
+          };
+        }) || [];
+
+      setSuggestions(results);
     } catch (err) {
       console.error("City search failed:", err);
       setSuggestions([]);
     }
   };
 
-  // parse "UTC+05:30" or "UTC-04:00" -> number (e.g., 5.5 or -4)
-  const parseUtcOffsetToNumber = (offsetStr) => {
-    if (!offsetStr?.startsWith("UTC")) return "";
-    const sign = offsetStr.includes("-") ? -1 : 1;
-    const [hh, mm] = offsetStr.replace("UTC", "").replace("+", "").replace("-", "").split(":");
-    const h = Number(hh || 0);
-    const m = Number(mm || 0);
-    const val = sign * (h + m / 60);
-    return Number.isFinite(val) ? Number(val.toFixed(2)) : "";
+  // 🧭 When user selects a city
+  const handleSelectCity = (city) => {
+    setCityQuery(city.name);
+    setLat(city.lat);
+    setLon(city.lon);
+    setTz(city.tz);
+    setSuggestions([]);
   };
 
-const handleSelectCity = (city) => {
-  setCityQuery(city.name);
-  setLat(city.lat);
-  setLon(city.lon);
-  setTz(city.tz); // numeric timezone already
-  setSuggestions([]);
-};
-
-  // --- Submit form ---
+  // 🔮 Submit form to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -106,11 +88,12 @@ const handleSelectCity = (city) => {
       setLoading(false);
       return;
     }
+
     const latNum = Number(lat);
     const lonNum = Number(lon);
     const tzNum = Number(tz);
     if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) || !Number.isFinite(tzNum)) {
-      setFormError("Latitude, Longitude and Time Zone must be valid numbers.");
+      setFormError("Latitude, Longitude, and Time Zone must be valid numbers.");
       setLoading(false);
       return;
     }
@@ -124,7 +107,6 @@ const handleSelectCity = (city) => {
         tz: tzNum,
       });
 
-      // Expecting { reading, lagnaData }
       setLagna(res.data?.lagnaData || null);
       setReading(res.data?.reading || "");
     } catch (err) {
@@ -165,7 +147,7 @@ const handleSelectCity = (city) => {
             required
           />
 
-          {/* City Autocomplete */}
+          {/* 🌍 City Autocomplete */}
           <div className="col-span-2 relative">
             <input
               type="text"
@@ -182,7 +164,7 @@ const handleSelectCity = (city) => {
                     onClick={() => handleSelectCity(city)}
                     className="px-2 py-1 hover:bg-purple-100 cursor-pointer text-sm"
                   >
-                    {city.name} {city.tzOffsetStr ? `(${city.tzOffsetStr})` : ""}
+                    {city.name} (UTC{city.tz >= 0 ? "+" : ""}{city.tz})
                   </li>
                 ))}
               </ul>
@@ -209,11 +191,11 @@ const handleSelectCity = (city) => {
             required
           />
 
-          {/* Time Zone (auto-filled but editable) */}
+          {/* Time Zone */}
           <input
             type="number"
             step="0.25"
-            placeholder="Time Zone (e.g. -4, 5.5)"
+            placeholder="Time Zone (auto-filled)"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
             className="col-span-2 p-2 rounded-md text-black"
@@ -221,9 +203,7 @@ const handleSelectCity = (city) => {
           />
         </div>
 
-        {formError && (
-          <p className="text-red-400 text-sm mt-3">{formError}</p>
-        )}
+        {formError && <p className="text-red-400 text-sm mt-3">{formError}</p>}
 
         <button
           type="submit"
@@ -237,22 +217,14 @@ const handleSelectCity = (city) => {
       {/* RESULTS */}
       {lagna && (
         <div className="mt-10 w-full max-w-4xl text-center">
-          <h2 className="text-3xl font-semibold text-purple-300 mb-6">
-            🪔 Lagna Chart
-          </h2>
+          <h2 className="text-3xl font-semibold text-purple-300 mb-6">🪔 Lagna Chart</h2>
 
-          {/* Ensure houses exist before rendering */}
           {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
-            <LagnaChart
-              houses={lagna.houses}
-              ascendant={lagna.ascendant}
-              planets={lagna.planets}
-            />
+            <LagnaChart houses={lagna.houses} />
           ) : (
             <p className="text-gray-300">No house data returned.</p>
           )}
 
-          {/* Reading */}
           <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
               ✨ Oracle Reading
@@ -267,4 +239,4 @@ const handleSelectCity = (city) => {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);        
