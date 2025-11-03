@@ -31,30 +31,32 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // --- City autocomplete (OpenCage) ---
-  const handleCitySearch = async (query) => {
-    setCityQuery(query);
-    if (!VITE_OPENCAGE_KEY) {
-      // No key set; just skip autocomplete silently
-      setSuggestions([]);
-      return;
-    }
-    if (query.trim().length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const res = await axios.get(
-        "https://api.opencagedata.com/geocode/v1/json",
-        {
-          params: {
-            q: query.trim(),
-            key: VITE_OPENCAGE_KEY,
-            limit: 7,
-            no_annotations: 0, // we need timezone annotation
-          },
-        }
-      );
+// 🌍 Autocomplete city search
+const handleCitySearch = async (query) => {
+  setCityQuery(query);
+  if (query.length < 3) {
+    setSuggestions([]);
+    return;
+  }
+  try {
+    const apiKey = import.meta.env.VITE_OPENCAGE_KEY;
+    const res = await axios.get(
+      `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+        query
+      )}&key=${apiKey}&limit=5`
+    );
+    setSuggestions(
+      res.data.results.map((r) => ({
+        name: r.formatted,
+        lat: r.geometry.lat.toFixed(2),
+        lon: r.geometry.lng.toFixed(2),
+        tz: r.annotations?.timezone?.offset_string || "",
+      }))
+    );
+  } catch (err) {
+    console.error("City search failed:", err);
+  }
+};
 
       const opts =
         res.data?.results?.map((r) => ({
