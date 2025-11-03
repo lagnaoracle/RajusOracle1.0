@@ -251,7 +251,10 @@ function App() {
                     houses={lagna.houses}
                     ascendant={lagna.ascendant}
                     planets={lagna.planets}
+                    mc={lagna.mc}
+                    ic={lagna.ic}
                   />
+
                 </div>
               ) : (
                 <p className="subtitle">No house data returned.</p>
