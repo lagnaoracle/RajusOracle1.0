@@ -1,38 +1,43 @@
+// backend/utils/lagna.js
 import * as Astronomy from "astronomy-engine";
 
 /**
- * Calculates Lagna (Ascendant) and planetary positions
- * for Vedic-style charting (simplified).
- * Returns 12 houses with proper numbering (1 = Ascendant).
+ * Calculates a simplified Lagna chart with planetary positions
+ * and house assignments based on provided birth details.
  */
 export function calculateLagna(date, time, lat, lon, tz) {
   try {
+    // Combine date + time and adjust timezone
     const birthDateTime = new Date(`${date}T${time}:00`);
     const utcDate = new Date(birthDateTime.getTime() - tz * 3600 * 1000);
 
+    // Define observer (latitude, longitude)
     const observer = new Astronomy.Observer(lat, lon, 0);
 
+    // Define planets we care about
+    const planetList = [
+      "Sun",
+      "Moon",
+      "Mercury",
+      "Venus",
+      "Mars",
+      "Jupiter",
+      "Saturn",
+    ];
+
+    // Define zodiac signs
     const signs = [
       "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-      "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+      "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
     ];
 
-    // ---- 1️⃣ Compute Ascendant ----
-    const asc = Astronomy.Horizon(utcDate, observer, 90, 0, "normal");
-    // Using the local sidereal time approximation
-    const ascLong = ((asc.azimuth + 180) % 360); // east horizon
-    const ascSignIndex = Math.floor(ascLong / 30);
-    const ascSign = signs[ascSignIndex];
-
-    // ---- 2️⃣ Compute planet longitudes ----
-    const planetList = [
-      "Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"
-    ];
-
+    // 🪐 Calculate planet longitudes (geocentric ecliptic)
     const planetPositions = planetList.map((name) => {
       const body = Astronomy.Body[name];
-      const ecl = Astronomy.EclipticGeo(body, utcDate);
-      const longitude = (ecl.elon + 360) % 360;
+      // get geocentric vector
+      const vector = Astronomy.GeoVector(body, utcDate, true);
+      const ecliptic = Astronomy.Ecliptic(vector); // converts to ecliptic coordinates
+      const longitude = ecliptic.elon; // ecliptic longitude (degrees)
       const signIndex = Math.floor(longitude / 30);
       return {
         name,
@@ -41,28 +46,29 @@ export function calculateLagna(date, time, lat, lon, tz) {
       };
     });
 
-    // ---- 3️⃣ Assign planets to houses based on sign ----
-    const houses = Array.from({ length: 12 }, (_, i) => {
-      const houseSign = signs[(ascSignIndex + i) % 12];
-      const planetsInHouse = planetPositions
-        .filter((p) => p.sign === houseSign)
-        .map((p) => p.name);
+    // 🌅 Calculate Ascendant (approximation)
+    const hor = Astronomy.Horizon(utcDate, observer, 0, "rise", Astronomy.Body.Sun);
+    const ascLong = (hor.azimuth + 180) % 360;
+    const ascSignIndex = Math.floor(ascLong / 30);
+    const ascSign = signs[ascSignIndex];
 
-      return {
-        number: i + 1,
-        sign: houseSign,
-        planets: planetsInHouse,
-      };
+    // 🏠 Build simplified 12-house structure
+    const houses = Array.from({ length: 12 }, (_, i) => {
+      const sign = signs[(ascSignIndex + i) % 12];
+      const planets = planetPositions
+        .filter((p) => p.sign === sign)
+        .map((p) => p.name);
+      return { number: i + 1, sign, planets };
     });
 
-    // ---- 4️⃣ Return structured data ----
-    return {
+    // Final chart
+    const chart = {
       ascendant: ascSign,
-      ascendantLongitude: ascLong.toFixed(2),
       houses,
       planets: planetPositions,
     };
 
+    return chart;
   } catch (error) {
     console.error("Lagna calculation error:", error);
     return {
