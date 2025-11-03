@@ -153,7 +153,20 @@ function App() {
   return (
     <div className="container">
       <header className="header fade-in">
-        <h1>Raju’s Oracle</h1>
+      <h1
+        className="title"
+        style={{
+          textAlign: "center",
+          color: "var(--accent-ink)",
+          fontSize: "48px",
+          fontWeight: "700",
+          letterSpacing: "0.5px",
+          marginBottom: "8px",
+         }}
+        >
+          Raju’s Oracle
+        </h1>
+
         <p className="subtle">
           Enter your birth details to reveal your Lagna chart and a personalized reading.
         </p>
