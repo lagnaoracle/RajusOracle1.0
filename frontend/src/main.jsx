@@ -1,146 +1,237 @@
-// frontend/src/components/LagnaChart.jsx
-import React from "react";
+import React, { useRef, useState } from "react";
+import ReactDOM from "react-dom/client";
+import axios from "axios";
+import "./index.css";
+import LagnaChart from "./components/LagnaChart";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
-/**
- * North-Indian diamond chart, theme-matched to the beige palette.
- * Props:
- *  - houses: [{ number, sign, planets: ["Sun","Moon",...] }]
- *  - ascendant?: string
- */
-export default function LagnaChart({ houses = [], ascendant }) {
-  if (!Array.isArray(houses) || houses.length !== 12) return null;
+// ---- Config ----
+const API_BASE =
+  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+  "https://rajusoracle1-0.onrender.com";
+const VITE_OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || "";
 
-  // quick helpers
-  const H = (n) => houses.find((h) => h.number === n) || { number: n, sign: "", planets: [] };
-  const planetAbbr = {
-    Sun: "Su", Moon: "Mo", Mercury: "Me", Venus: "Ve",
-    Mars: "Ma", Jupiter: "Ju", Saturn: "Sa",
-    Rahu: "Ra", Ketu: "Ke"
+// Axios instance
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: { "Content-Type": "application/json" },
+});
+
+function App() {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [lat, setLat] = useState("");
+  const [lon, setLon] = useState("");
+  const [tz, setTz] = useState("");
+  const [reading, setReading] = useState("");
+  const [lagna, setLagna] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  // for exporting the combined chart+reading area
+  const exportRef = useRef(null);
+
+  // ---- City autocomplete ----
+  const handleCitySearch = async (query) => {
+    setCityQuery(query);
+    if (!VITE_OPENCAGE_KEY || query.trim().length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const { data } = await axios.get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+          query
+        )}&key=${VITE_OPENCAGE_KEY}&limit=6`
+      );
+      const results =
+        data?.results?.map((r) => {
+          const offsetSec = r.annotations?.timezone?.offset_sec ?? 0;
+          const tzHours = offsetSec / 3600;
+          return {
+            name: r.formatted,
+            lat: Number(r.geometry.lat).toFixed(2),
+            lon: Number(r.geometry.lng).toFixed(2),
+            tz: Number(tzHours.toFixed(2)),
+          };
+        }) || [];
+      setSuggestions(results);
+    } catch (e) {
+      console.error("City search failed", e);
+      setSuggestions([]);
+    }
   };
 
-  // stroke/fill from CSS vars (beige theme)
-  const stroke = getVar("--line", "#d7c9a3");
-  const label = getVar("--accent-ink", "#3a2e1f");
-  const planetPillFill = "#fff";
-  const planetPillStroke = stroke;
+  const handleSelectCity = (city) => {
+    setCityQuery(city.name);
+    setLat(city.lat);
+    setLon(city.lon);
+    setTz(city.tz);
+    setSuggestions([]);
+  };
+
+  // ---- Submit ----
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError("");
+    setLoading(true);
+    setReading("");
+    setLagna(null);
+
+    const latNum = Number(lat);
+    const lonNum = Number(lon);
+    const tzNum = Number(tz);
+
+    if (!date || !time || !Number.isFinite(latNum) || !Number.isFinite(lonNum) || !Number.isFinite(tzNum)) {
+      setFormError("Please complete all fields with valid values.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await api.post("/api/reading", {
+        date, time, lat: latNum, lon: lonNum, tz: tzNum,
+      });
+      setLagna(res.data?.lagnaData || null);
+      setReading(res.data?.reading || "");
+    } catch (err) {
+      console.error("Reading fetch failed:", err);
+      setFormError("Something went wrong while fetching your chart.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---- Export helpers ----
+  const exportPNG = async () => {
+    if (!exportRef.current) return;
+    const canvas = await html2canvas(exportRef.current, { backgroundColor: "#FFFFFF", scale: 2 });
+    const dataUrl = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = "raju-oracle-chart.png";
+    a.click();
+  };
+
+  const exportPDF = async () => {
+    if (!exportRef.current) return;
+    const canvas = await html2canvas(exportRef.current, { backgroundColor: "#FFFFFF", scale: 2 });
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+    // A4 portrait
+    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+    const pageW = 210;
+    const pageH = 297;
+    const imgW = pageW - 20; // 10mm margin each side
+    const imgH = (canvas.height * imgW) / canvas.width;
+    let y = 10;
+
+    if (imgH < pageH - 20) {
+      pdf.addImage(imgData, "JPEG", 10, y, imgW, imgH);
+    } else {
+      // paginate if needed
+      let sY = 0;
+      const pagePxH = Math.floor(canvas.width * (pageH - 20) / imgW);
+      while (sY < canvas.height) {
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = pagePxH;
+        const ctx = pageCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, sY, canvas.width, pagePxH, 0, 0, canvas.width, pagePxH);
+        const pageImg = pageCanvas.toDataURL("image/jpeg", 0.92);
+        if (sY > 0) pdf.addPage();
+        pdf.addImage(pageImg, "JPEG", 10, 10, imgW, pageH - 20);
+        sY += pagePxH;
+      }
+    }
+
+    pdf.save("raju-oracle-reading.pdf");
+  };
 
   return (
-    <div style={{ width: 420, maxWidth: "100%", margin: "0 auto" }} className="card">
-      <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%" }}>
-        {/* FRAME */}
-        <g stroke={stroke} strokeWidth="1.1" fill="none">
-          {/* Outer square */}
-          <rect x="5" y="5" width="90" height="90" rx="0.6" />
-          {/* Diamond */}
-          <line x1="5" y1="50" x2="50" y2="5" />
-          <line x1="50" y1="5" x2="95" y2="50" />
-          <line x1="95" y1="50" x2="50" y2="95" />
-          <line x1="50" y1="95" x2="5" y2="50" />
-          {/* Cross */}
-          <line x1="5" y1="50" x2="95" y2="50" />
-          <line x1="50" y1="5" x2="50" y2="95" />
-        </g>
+    <div className="container">
+      <header className="header fade-in">
+        <h1>Raju’s Oracle</h1>
+        <p className="subtle">
+          Enter your birth details to reveal your Lagna chart and a personalized reading.
+        </p>
+      </header>
 
-        {/* HOUSE LABELS (fixed N-Indian geometry) */}
-        <House x={50} y={18}    data={H(1)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={70} y={28}    data={H(2)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={85} y={43}    data={H(3)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={70} y={72}    data={H(4)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={50} y={82}    data={H(5)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={30} y={72}    data={H(6)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={15} y={43}    data={H(7)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={30} y={28}    data={H(8)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} />
-        <House x={50} y={8}     data={H(9)}  label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} small />
-        <House x={82} y={18}    data={H(10)} label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} small />
-        <House x={86} y={78}    data={H(11)} label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} small />
-        <House x={18} y={82}    data={H(12)} label={label} pillFill={planetPillFill} pillStroke={planetPillStroke} small />
+      {/* FORM */}
+      <form onSubmit={handleSubmit} className="card fade-in no-print" style={{maxWidth: 640, margin: "0 auto"}}>
+        <div className="grid">
+          <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} required />
+          <input type="time" value={time} onChange={(e)=>setTime(e.target.value)} required />
 
-        {/* Ascendant caption (optional) */}
-        {ascendant && (
-          <text x="50" y="98" textAnchor="middle" fontSize="3.2" fill={label}>
-            Ascendant: {ascendant}
-          </text>
-        )}
-      </svg>
+          {/* City autocomplete */}
+          <div style={{ position: "relative", gridColumn: "1 / -1" }}>
+            <input
+              type="text"
+              placeholder="Enter city (worldwide)"
+              value={cityQuery}
+              onChange={(e) => handleCitySearch(e.target.value)}
+            />
+            {suggestions.length > 0 && (
+              <ul className="suggest">
+                {suggestions.map((c, i) => (
+                  <li key={`${c.name}-${i}`} onClick={()=>handleSelectCity(c)}>
+                    {c.name} &nbsp; — &nbsp; UTC{c.tz >= 0 ? "+" : ""}{c.tz}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <input type="number" step="0.01" placeholder="Latitude" value={lat} onChange={(e)=>setLat(e.target.value)} required />
+          <input type="number" step="0.01" placeholder="Longitude" value={lon} onChange={(e)=>setLon(e.target.value)} required />
+
+          <input type="number" step="0.25" placeholder="Time Zone (auto-filled)" value={tz} onChange={(e)=>setTz(e.target.value)} style={{gridColumn: "1 / -1"}} required />
+        </div>
+
+        {formError && <p style={{color:"#b00020", marginTop:8}}>{formError}</p>}
+
+        <div className="actions" style={{marginTop:16}}>
+          <button type="submit" className="primary" disabled={loading}>
+            {loading ? "Calculating…" : "Generate reading"}
+          </button>
+        </div>
+      </form>
+
+      {/* RESULTS */}
+      {lagna && (
+        <section ref={exportRef} className="fade-in-slow" style={{marginTop: 32}}>
+          <div className="card" style={{maxWidth: 860, margin: "0 auto"}}>
+            <h2 style={{marginTop:0, marginBottom: 18}}>Lagna Chart</h2>
+            {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
+              <LagnaChart
+                houses={lagna.houses}
+                ascendant={lagna.ascendant}
+                planets={lagna.planets}
+              />
+            ) : (
+              <p className="subtle">No house data returned.</p>
+            )}
+          </div>
+
+            <div className="card" style={{maxWidth: 860, margin: "18px auto 0"}}>
+              <h2 style={{marginTop:0}}>Reading</h2>
+              <p style={{whiteSpace:"pre-line", lineHeight:1.7, color:"#333"}}>{reading || "No reading yet."}</p>
+            </div>
+        </section>
+      )}
+
+      {/* Export / Print actions */}
+      {lagna && (
+        <div className="actions no-print fade-in" style={{marginTop: 16, justifyContent:"center"}}>
+          <button className="ghost" onClick={()=>window.print()}>Print</button>
+          <button className="ghost" onClick={exportPNG}>Download PNG</button>
+          <button className="primary" onClick={exportPDF}>Download PDF</button>
+        </div>
+      )}
     </div>
   );
-
-  // read CSS variable with fallback
-  function getVar(name, fallback) {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
-  }
-
-  function House({ x, y, data, label, pillFill, pillStroke, small = false }) {
-    // Typography tuned for readability
-    const fsHouse = small ? 3.2 : 3.8;
-    const fsSign  = small ? 3.0 : 3.4;
-    const fsPlan  = small ? 2.6 : 2.8; // used inside pill text
-
-    const planetRow = layoutPills(data.planets?.map(p => planetAbbr[p] || p) || [], small);
-
-    return (
-      <g transform={`translate(${x},${y})`}>
-        {/* House number */}
-        <text x="0" y="0" textAnchor="middle" fontSize={fsHouse} fontWeight="700" fill={label}>
-          H{data.number}
-        </text>
-        {/* Sign */}
-        {data.sign && (
-          <text x="0" y="5.5" textAnchor="middle" fontSize={fsSign} fill={label}>
-            {data.sign}
-          </text>
-        )}
-        {/* Planets as pills */}
-        {planetRow.length > 0 && (
-          <g transform="translate(0, 10)">
-            {planetRow.map((pill, i) => (
-              <g key={i} transform={`translate(${pill.x},0)`}>
-                <rect
-                  x={-pill.w/2} y={-3.8}
-                  width={pill.w} height={7.6}
-                  rx={3.8} ry={3.8}
-                  fill={pillFill}
-                  stroke={pillStroke}
-                  strokeWidth="0.4"
-                />
-                <text
-                  x="0" y="2"
-                  textAnchor="middle"
-                  fontSize={fsPlan}
-                  fill={label}
-                >
-                  {pill.text}
-                </text>
-              </g>
-            ))}
-          </g>
-        )}
-      </g>
-    );
-  }
-
-  /**
-   * Compute pill widths & x positions so the row is centered.
-   * We assume average char width ~1.6 units at the chosen font size.
-   */
-  function layoutPills(items, compact) {
-    if (!items.length) return [];
-    const pad = 4;               // rect inner padding (units)
-    const gap = 2.5;             // space between pills
-    const charW = 1.6;           // avg char width
-    const rectH = compact ? 7.0 : 7.6;
-
-    const pills = items.map(text => {
-      const w = Math.max(12, text.length * charW + pad * 2);
-      return { text, w };
-    });
-    const totalW = pills.reduce((s,p) => s + p.w, 0) + gap * (pills.length - 1);
-    let x = -totalW / 2;
-    return pills.map(p => {
-      const cx = x + p.w/2;
-      x += p.w + gap;
-      return { ...p, x: cx, h: rectH };
-    });
-  }
 }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
