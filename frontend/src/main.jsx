@@ -1,4 +1,4 @@
-    // frontend/src/main.jsx
+// frontend/src/main.jsx
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
@@ -7,10 +7,10 @@ import LagnaChart from "./components/LagnaChart";
 
 // ---- Config ----
 const API_BASE =
-  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+  (import.meta.env.VITE_API_BASE?.replace(/\/$/, "")) ||
   "https://rajusoracle1-0.onrender.com";
 
-const VITE_OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || ""; // optional in local dev
+const OPENCAGE_KEY = import.meta.env.VITE_OPENCAGE_KEY || "";
 
 // Axios instance
 const api = axios.create({
@@ -31,25 +31,23 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // 🌍 Autocomplete city search (OpenCage API)
+  // 🌍 City autocomplete (OpenCage)
   const handleCitySearch = async (query) => {
     setCityQuery(query);
-    if (query.length < 3) {
+    if (!OPENCAGE_KEY || query.trim().length < 3) {
       setSuggestions([]);
       return;
     }
-
     try {
-      const res = await axios.get(
-        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
-          query
-        )}&key=${VITE_OPENCAGE_KEY}&limit=5`
-      );
+      const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+        query
+      )}&key=${OPENCAGE_KEY}&limit=5`;
+      const { data } = await axios.get(url);
 
       const results =
-        res.data?.results?.map((r) => {
+        data?.results?.map((r) => {
           const offsetSec = r.annotations?.timezone?.offset_sec ?? 0;
-          const tzHours = offsetSec / 3600;
+          const tzHours = +(offsetSec / 3600).toFixed(2); // keep numeric with 2 decimals
           return {
             name: r.formatted,
             lat: Number(r.geometry.lat).toFixed(2),
@@ -65,16 +63,16 @@ function App() {
     }
   };
 
-  // 🧭 When user selects a city
+  // 🧭 Select city -> fill coords + tz
   const handleSelectCity = (city) => {
     setCityQuery(city.name);
     setLat(city.lat);
     setLon(city.lon);
-    setTz(city.tz);
+    setTz(city.tz); // already numeric
     setSuggestions([]);
   };
 
-  // 🔮 Submit form to backend
+  // 🔮 Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -82,7 +80,6 @@ function App() {
     setReading("");
     setLagna(null);
 
-    // quick validations
     if (!date || !time) {
       setFormError("Please provide date and time of birth.");
       setLoading(false);
@@ -99,16 +96,15 @@ function App() {
     }
 
     try {
-      const res = await api.post("/api/reading", {
+      const { data } = await api.post("/api/reading", {
         date,
         time,
         lat: latNum,
         lon: lonNum,
         tz: tzNum,
       });
-
-      setLagna(res.data?.lagnaData || null);
-      setReading(res.data?.reading || "");
+      setLagna(data?.lagnaData || null);
+      setReading(data?.reading || "");
     } catch (err) {
       console.error("Reading fetch failed:", err);
       setFormError("Something went wrong while fetching your chart.");
@@ -119,39 +115,21 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black text-white flex flex-col items-center py-10 px-4">
-      <h1 className="text-5xl font-bold text-purple-300 mb-4 tracking-wide">
-        🔮 Raju’s Oracle
-      </h1>
+      <h1 className="text-5xl font-bold text-purple-300 mb-4 tracking-wide">🔮 Raju’s Oracle</h1>
       <p className="text-gray-300 mb-6 text-center max-w-xl">
         Enter your birth details to reveal your Lagna chart and a personalized reading.
       </p>
 
-      {/* FORM */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full relative"
-      >
+      <form onSubmit={handleSubmit} className="bg-black/50 backdrop-blur-sm p-6 rounded-2xl shadow-lg max-w-lg w-full relative">
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="p-2 rounded-md text-black"
-            required
-          />
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="p-2 rounded-md text-black"
-            required
-          />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="p-2 rounded-md text-black" required />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="p-2 rounded-md text-black" required />
 
-          {/* 🌍 City Autocomplete */}
+          {/* City Autocomplete */}
           <div className="col-span-2 relative">
             <input
               type="text"
-              placeholder="Enter City (worldwide)"
+              placeholder={`Enter City ${OPENCAGE_KEY ? "(worldwide)" : "(set VITE_OPENCAGE_KEY to enable search)"}`}
               value={cityQuery}
               onChange={(e) => handleCitySearch(e.target.value)}
               className="p-2 w-full rounded-md text-black"
@@ -172,26 +150,10 @@ function App() {
           </div>
 
           {/* Lat & Lon */}
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Latitude"
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            className="p-2 rounded-md text-black"
-            required
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Longitude"
-            value={lon}
-            onChange={(e) => setLon(e.target.value)}
-            className="p-2 rounded-md text-black"
-            required
-          />
+          <input type="number" step="0.01" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} className="p-2 rounded-md text-black" required />
+          <input type="number" step="0.01" placeholder="Longitude" value={lon} onChange={(e) => setLon(e.target.value)} className="p-2 rounded-md text-black" required />
 
-          {/* Time Zone */}
+          {/* Time Zone (auto-filled but editable) */}
           <input
             type="number"
             step="0.25"
@@ -205,11 +167,7 @@ function App() {
 
         {formError && <p className="text-red-400 text-sm mt-3">{formError}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all disabled:opacity-60"
-        >
+        <button type="submit" disabled={loading} className="mt-6 w-full py-2 bg-purple-700 hover:bg-purple-800 rounded-md font-semibold transition-all disabled:opacity-60">
           {loading ? "Calculating..." : "Reveal My Oracle"}
         </button>
       </form>
@@ -220,18 +178,14 @@ function App() {
           <h2 className="text-3xl font-semibold text-purple-300 mb-6">🪔 Lagna Chart</h2>
 
           {Array.isArray(lagna.houses) && lagna.houses.length > 0 ? (
-            <LagnaChart houses={lagna.houses} />
+            <LagnaChart houses={lagna.houses} ascendant={lagna.ascendant} planets={lagna.planets} />
           ) : (
             <p className="text-gray-300">No house data returned.</p>
           )}
 
           <div className="mt-10 bg-black/40 p-6 rounded-xl shadow-lg text-left max-w-2xl mx-auto">
-            <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">
-              ✨ Oracle Reading
-            </h3>
-            <p className="whitespace-pre-line leading-relaxed text-gray-200">
-              {reading || "No reading yet."}
-            </p>
+            <h3 className="text-2xl font-semibold mb-4 text-purple-300 text-center">✨ Oracle Reading</h3>
+            <p className="whitespace-pre-line leading-relaxed text-gray-200">{reading || "No reading yet."}</p>
           </div>
         </div>
       )}
@@ -239,4 +193,4 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);        
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
