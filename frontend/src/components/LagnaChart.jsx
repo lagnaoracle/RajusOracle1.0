@@ -1,142 +1,218 @@
-import React, { useMemo } from "react";
+// frontend/src/components/LagnaChart.jsx
+import React from "react";
 
 /**
- * Readable North-Indian diamond chart.
+ * North Indian (diamond) Lagna chart in a refined beige theme.
  * Props:
- *  - houses: [{ number: 1..12, sign: string, planets: string[] }]
- *  - ascendant: string
- *  - planets: optional full planet list
+ *  - houses: [{ number, sign, planets: [ "Sun", "Moon", ... ] }]
+ *  - ascendant?: "Aries" | ... (optional, shown in title badge)
+ *  - planets?: [{ name, longitude?, sign? }] (optional, used only for legend sorting)
  */
-export default function LagnaChart({ houses = [], ascendant }) {
-  if (!Array.isArray(houses) || houses.length !== 12) return null;
+export default function LagnaChart({ houses = [], ascendant, planets = [] }) {
+  if (!Array.isArray(houses) || houses.length === 0) return null;
 
-  // Planet abbreviations to avoid long words overlapping.
-  const short = (name) => {
-    switch (name) {
-      case "Sun": return "Su";
-      case "Moon": return "Mo";
-      case "Mercury": return "Me";
-      case "Venus": return "Ve";
-      case "Mars": return "Ma";
-      case "Jupiter": return "Ju";
-      case "Saturn": return "Sa";
-      default: return name?.slice(0, 2) || "";
-    }
+  // Theme palette (kept here so it’s self-contained)
+  const color = {
+    paper: "#faf5e6",
+    border: "#d7c9a3",
+    gold: "#b49761",
+    deep: "#3a2e1f",
+    text: "#3c3325",
+    muted: "#6b5b45",
   };
 
-  const signShort = (sign) =>
-    ({
-      Aries: "Ar", Taurus: "Ta", Gemini: "Ge", Cancer: "Cn",
-      Leo: "Le", Virgo: "Vi", Libra: "Li", Scorpio: "Sc",
-      Sagittarius: "Sg", Capricorn: "Cp", Aquarius: "Aq", Pisces: "Pi",
-    }[sign] || sign || "");
-
-  // Quick lookup by house number
-  const H = (n) => houses.find((h) => h.number === n) || { sign: "", planets: [] };
-
-  // Text helpers: join planets in a compact way and split onto 2 lines if needed
-  const planetLines = (arr) => {
-    const txt = (arr || []).map(short).join(" ");
-    if (txt.length <= 10) return [txt, ""];
-    const mid = Math.ceil(txt.length / 2);
-    // split on nearest space to the midpoint
-    let split = txt.lastIndexOf(" ", mid);
-    if (split < 0) split = mid;
-    return [txt.slice(0, split), txt.slice(split + 1)];
+  // Planet symbols (clean, readable)
+  const SYM = {
+    Sun: "☉",
+    Moon: "☾",
+    Mercury: "☿",
+    Venus: "♀",
+    Mars: "♂",
+    Jupiter: "♃",
+    Saturn: "♄",
+    Rahu: "☊",
+    Ketu: "☋",
   };
 
-  // For accessibility/contrast
-  const lineColor = "#a855f7"; // Purple-500
-  const textLight = "#e9d5ff"; // Purple-100
-  const textDim = "#c4b5fd";   // Purple-200
-  const textGray = "#cbd5e1";  // Slate-300
-  const ascFill = "rgba(168,85,247,0.15)"; // subtle highlight
+  // Helper: get a house by number safely
+  const H = (n) => houses.find((h) => h.number === n) || { number: n, sign: "", planets: [] };
 
-  // Positions for labels (fixed layout)
-  const spots = useMemo(() => ([
-    { n: 1,  x: 50, y: 20 },
-    { n: 2,  x: 70, y: 30 },
-    { n: 3,  x: 85, y: 45 },
-    { n: 4,  x: 70, y: 70 },
-    { n: 5,  x: 50, y: 80 },
-    { n: 6,  x: 30, y: 70 },
-    { n: 7,  x: 15, y: 45 },
-    { n: 8,  x: 30, y: 30 },
-    { n: 9,  x: 50, y: 8  },
-    { n: 10, x: 85, y: 18 },
-    { n: 11, x: 85, y: 82 },
-    { n: 12, x: 15, y: 82 },
-  ]), []);
+  // Sort legend by typical Vedic order for a tidy look
+  const legendPlanets =
+    planets.length > 0
+      ? sortByList(
+          planets.map((p) => p.name).filter(Boolean),
+          ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
+        )
+      : [];
 
   return (
-    <div className="mx-auto w-full max-w-[520px]">
-      {/* Optional header row */}
-      {ascendant && (
-        <p className="mb-2 text-sm text-purple-200 text-center">
-          Ascendant: <span className="font-semibold">{ascendant}</span>
-        </p>
-      )}
-      <div className="relative w-full aspect-square">
-        <svg viewBox="0 0 100 100" className="w-full h-full">
-          {/* Outer frame + diagonals */}
-          <g stroke={lineColor} strokeWidth="1.6" fill="none">
-            <rect x="5" y="5" width="90" height="90" rx="0.8" />
-            <line x1="5" y1="50" x2="50" y2="5" />
-            <line x1="50" y1="5"  x2="95" y2="50" />
-            <line x1="95" y1="50" x2="50" y2="95" />
-            <line x1="50" y1="95" x2="5"  y2="50" />
-            <line x1="5"  y1="50" x2="95" y2="50" />
-            <line x1="50" y1="5"  x2="50" y2="95" />
-          </g>
-
-          {/* Ascendant area subtle highlight (center-top diamond) */}
-          <polygon
-            points="50,5 95,50 50,50 5,50"
-            fill={ascFill}
-            opacity="0.6"
-          />
-
-          {/* House labels */}
-          {spots.map(({ n, x, y }) => {
-            const house = H(n);
-            const [line1, line2] = planetLines(house.planets);
-            return (
-              <g key={n} transform={`translate(${x},${y})`} textAnchor="middle">
-                <text
-                  y={-2.8}
-                  fontSize="4.2"
-                  fill={textLight}
-                  fontWeight="700"
-                >
-                  H{n}
-                </text>
-                <text
-                  y={2.2}
-                  fontSize="3.8"
-                  fill={textDim}
-                  fontWeight="600"
-                >
-                  {signShort(house.sign)}
-                </text>
-                {line1 && (
-                  <text y={6.0} fontSize="3.4" fill={textGray}>
-                    {line1}
-                  </text>
-                )}
-                {line2 && (
-                  <text y={9.2} fontSize="3.4" fill={textGray}>
-                    {line2}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+    <div className="w-full flex flex-col items-center">
+      {/* Title / Ascendant badge */}
+      <div
+        className="mb-3 px-3 py-1 rounded-full text-sm"
+        style={{
+          background: "#f0e5c8",
+          color: color.deep,
+          border: `1px solid ${color.border}`,
+        }}
+      >
+        {ascendant ? `Ascendant: ${ascendant}` : "Lagna"}
       </div>
-      {/* Tiny legend */}
-      <p className="mt-2 text-xs text-center text-slate-300">
-        Planets: Su Sun · Mo Moon · Me Mercury · Ve Venus · Ma Mars · Ju Jupiter · Sa Saturn
-      </p>
+
+      {/* Chart wrapper with subtle frame */}
+      <div
+        className="p-3 rounded-xl shadow"
+        style={{ background: color.paper, border: `1px solid ${color.border}` }}
+      >
+        <ChartSVG color={color} H={H} />
+      </div>
+
+      {/* Legend (planet symbols) */}
+      <div className="mt-4 text-sm leading-6 text-center" style={{ color: color.muted }}>
+        <span className="font-medium" style={{ color: color.deep }}>
+          Planet Symbols:
+        </span>{" "}
+        {legendPlanets.length > 0
+          ? legendPlanets.map((name, i) => (
+              <span key={name}>
+                {i > 0 ? " · " : ""}
+                {SYM[name] || "•"} {name}
+              </span>
+            ))
+          : "Sun ☉, Moon ☾, Mars ♂, Mercury ☿, Jupiter ♃, Venus ♀, Saturn ♄"}
+      </div>
     </div>
   );
+}
+
+/** ---------------- SVG Chart ---------------- */
+function ChartSVG({ color, H }) {
+  // The chart is drawn in a 100x100 viewBox and scales responsively.
+  // Typography sizes are relative so labels are readable on mobile.
+  const stroke = color.gold;
+  const textPrimary = color.deep;
+  const textMuted = color.muted;
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className="block"
+      style={{ width: "min(78vw, 420px)", height: "auto" }}
+    >
+      {/* Frame */}
+      <rect x="3" y="3" width="94" height="94" fill="none" stroke={stroke} strokeWidth="1.6" />
+
+      {/* Diamond (outer) */}
+      <line x1="3" y1="50" x2="50" y2="3" stroke={stroke} strokeWidth="1.2" />
+      <line x1="50" y1="3" x2="97" y2="50" stroke={stroke} strokeWidth="1.2" />
+      <line x1="97" y1="50" x2="50" y2="97" stroke={stroke} strokeWidth="1.2" />
+      <line x1="50" y1="97" x2="3" y2="50" stroke={stroke} strokeWidth="1.2" />
+
+      {/* Cross */}
+      <line x1="3" y1="50" x2="97" y2="50" stroke={stroke} strokeWidth="0.9" />
+      <line x1="50" y1="3" x2="50" y2="97" stroke={stroke} strokeWidth="0.9" />
+
+      {/* House labels (fixed positions for North Indian layout) */}
+      {/* Positions tuned for readability; each block shows House, Sign, Planets with wrapping */}
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(1)} x={50} y={20} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(2)} x={71} y={29} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(3)} x={86} y={44} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(4)} x={71} y={71} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(5)} x={50} y={80} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(6)} x={29} y={71} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(7)} x={14} y={44} />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(8)} x={29} y={29} />
+      {/* Angular corners: show 9/10/11/12 subtly near corners for completeness */}
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(9)} x={50} y={8} small />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(10)} x={85} y={18} small />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(11)} x={85} y={82} small />
+      <HouseLabel color={{ textPrimary, textMuted }} house={H(12)} x={15} y={82} small />
+    </svg>
+  );
+}
+
+/** A single house label block with clean typography and word wrapping. */
+function HouseLabel({ color, house, x, y, small = false }) {
+  const { number, sign, planets = [] } = house || {};
+  const fontHouse = small ? 3 : 3.6;
+  const fontSign = small ? 3 : 3.2;
+  const fontPlan = small ? 2.7 : 2.9;
+
+  // Build planet line as symbols + names truncated if too long
+  const planetsStr = (planets || []).join(", ");
+
+  // Helper to wrap to max chars per line for readability
+  const lines = wrapText(planetsStr, small ? 14 : 18).slice(0, small ? 2 : 3);
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* House number */}
+      <text
+        x="0"
+        y="0"
+        textAnchor="middle"
+        fontSize={fontHouse}
+        fontWeight="600"
+        style={{ fill: color.textPrimary }}
+      >
+        H{number ?? "—"}
+      </text>
+
+      {/* Sign */}
+      {sign ? (
+        <text
+          x="0"
+          y={fontHouse + 3}
+          textAnchor="middle"
+          fontSize={fontSign}
+          fontWeight="500"
+          style={{ fill: color.textPrimary }}
+        >
+          {sign}
+        </text>
+      ) : null}
+
+      {/* Planets (wrapped) */}
+      {lines.length > 0 && (
+        <g style={{ fill: color.textMuted }}>
+          {lines.map((line, i) => (
+            <text
+              key={i}
+              x="0"
+              y={fontHouse + 3 + (i + 1) * (fontPlan + 1.6)}
+              textAnchor="middle"
+              fontSize={fontPlan}
+            >
+              {line}
+            </text>
+          ))}
+        </g>
+      )}
+    </g>
+  );
+}
+
+/** Utility: sort strings by a preferred list order */
+function sortByList(arr, order) {
+  const map = new Map(order.map((k, i) => [k, i]));
+  return [...new Set(arr)].sort((a, b) => (map.get(a) ?? 999) - (map.get(b) ?? 999));
+}
+
+/** Utility: naive text wrap to fixed width (characters) for SVG <text> */
+function wrapText(text, max = 18) {
+  if (!text) return [];
+  const words = text.split(/\s*,\s*|\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const trial = line ? `${line} ${w}` : w;
+    if (trial.length <= max) line = trial;
+    else {
+      if (line) lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
